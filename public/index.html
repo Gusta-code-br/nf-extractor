@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extração de Dados de Nota Fiscal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  </head>
+  <body>
+
+  <div class="container">
+
+    <header>
+      <div class="badge">Projeto Administrativo-Financeiro · N2 Etapa 1</div>
+      <h1>Extração de Dados de<br><span>Nota Fiscal</span></h1>
+      <p class="subtitle">Carregue um PDF de nota fiscal e extraia os dados automaticamente usando IA</p>
+    </header>
+
+    <!-- Upload Card -->
+    <div class="card" style="animation-delay:0.1s">
+      <div class="card-header">
+        <div class="icon">📄</div>
+        <h2>Upload do PDF</h2>
+      </div>
+      <div class="card-body">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept=".pdf" />
+          <span class="upload-icon">⬆️</span>
+          <div class="upload-text">Clique ou arraste o PDF aqui</div>
+          <div class="upload-hint">Selecione o arquivo PDF da nota fiscal</div>
+        </div>
+
+        <div class="file-info" id="fileInfo">
+          <div class="file-icon">📋</div>
+          <div class="file-details">
+            <div class="file-name" id="fileName">—</div>
+            <div class="file-size" id="fileSize">—</div>
+          </div>
+          <button class="file-remove" id="removeFile" title="Remover arquivo">✕</button>
+        </div>
+
+        <div class="error-box" id="errorBox"></div>
+
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-label" id="progressLabel"></div>
+
+        <button class="btn-extract" id="btnExtract" disabled>
+          <div class="spinner"></div>
+          <span class="btn-text">⚙ EXTRAIR DADOS</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Results Card -->
+    <div class="card results-card" id="resultsCard" style="animation-delay:0.2s">
+      <div class="card-header">
+        <div class="icon">✅</div>
+        <h2>Dados Extraídos</h2>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="formatted">Visualização Formatada</div>
+        <div class="tab" data-tab="json">JSON</div>
+      </div>
+
+      <!-- Formatted tab -->
+      <div class="tab-content active" id="tab-formatted">
+        <div class="formatted-view" id="formattedView"></div>
+      </div>
+
+      <!-- JSON tab -->
+      <div class="tab-content" id="tab-json">
+        <div class="json-header">
+          <span class="json-title">&lt;&gt; Dados em JSON</span>
+          <button class="btn-copy" id="btnCopy">📋 Copiar JSON</button>
+        </div>
+        <div class="json-block">
+          <pre id="jsonOutput"></pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  // ─── State ────────────────────────────────────────────────────────────────────
+  let selectedFile  = null;
+  let extractedData = null;
+
+  // ─── Elements ─────────────────────────────────────────────────────────────────
+  const fileInput     = document.getElementById('fileInput');
+  const uploadZone    = document.getElementById('uploadZone');
+  const fileInfo      = document.getElementById('fileInfo');
+  const fileName      = document.getElementById('fileName');
+  const fileSize      = document.getElementById('fileSize');
+  const removeFile    = document.getElementById('removeFile');
+  const btnExtract    = document.getElementById('btnExtract');
+  const errorBox      = document.getElementById('errorBox');
+  const progressBar   = document.getElementById('progressBar');
+  const progressFill  = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const resultsCard   = document.getElementById('resultsCard');
+  const jsonOutput    = document.getElementById('jsonOutput');
+  const formattedView = document.getElementById('formattedView');
+  const btnCopy       = document.getElementById('btnCopy');
+
+  // ─── File handling ─────────────────────────────────────────────────────────────
+  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+  uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', ()  => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === 'application/pdf') handleFile(f);
+    else showError('Por favor, selecione um arquivo PDF.');
+  });
+
+  removeFile.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    fileInfo.classList.remove('visible');
+    btnExtract.disabled = true;
+    hideError();
+    resultsCard.classList.remove('visible');
+  });
+
+  function handleFile(file) {
+    if (!file) return;
+    if (file.type !== 'application/pdf') { showError('Por favor, selecione um arquivo PDF.'); return; }
+    selectedFile = file;
+    fileName.textContent = file.name;
+    fileSize.textContent  = formatBytes(file.size);
+    fileInfo.classList.add('visible');
+    btnExtract.disabled = false;
+    hideError();
+  }
+
+  function formatBytes(b) {
+    if (b < 1024)    return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(2) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+
+  // ─── Extract ───────────────────────────────────────────────────────────────────
+  btnExtract.addEventListener('click', extractData);
+
+  async function extractData() {
+    if (!selectedFile) return;
+    hideError();
+    setLoading(true);
+    setProgress(10, 'Lendo o arquivo PDF...');
+
+    try {
+      // 1. Converte para base64
+      const base64 = await fileToBase64(selectedFile);
+      setProgress(30, 'Extraindo texto do PDF...');
+      const fileText = await fileToText(selectedFile);
+      setProgress(45, 'Enviando para o servidor...');
+
+      // 2. Envia para o backend local (sem CORS, sem expor API key)
+      const response = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base64,
+          mediaType: selectedFile.type || 'application/pdf',
+          text: fileText
+        })
+      });
+
+      setProgress(70, 'Processando nota fiscal com IA...');
+
+      const text = await response.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error(`Resposta inválida do servidor: ${text}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(result.error || `Erro HTTP ${response.status}`);
+      }
+
+      extractedData = result.data;
+      setProgress(100, 'Extração concluída!');
+
+      setTimeout(() => {
+        setLoading(false);
+        renderResults(extractedData);
+      }, 600);
+
+    } catch (err) {
+      setLoading(false);
+      hideProgress();
+      showError('Erro ao extrair dados: ' + err.message);
+    }
+  }
+
+  function fileToBase64(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload  = () => res(r.result.split(',')[1]);
+      r.onerror = () => rej(new Error('Falha ao ler arquivo'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function fileToText(file) {
+    if (!window.pdfjsLib) {
+      throw new Error('PDF.js não carregado.');
+    }
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const pageText = content.items.map(item => item.str).join(' ');
+      fullText += pageText + '\n\n';
+    }
+
+    return fullText.trim();
+  }
+
+  // ─── Render results ────────────────────────────────────────────────────────────
+  function renderResults(data) {
+    renderJSON(data);
+    renderFormatted(data);
+    resultsCard.classList.add('visible');
+    resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderJSON(data) {
+    jsonOutput.innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
+  }
+
+  function syntaxHighlight(json) {
+    return json
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+        let cls = 'j-num';
+        if (/^"/.test(match))         cls = /:$/.test(match) ? 'j-key' : 'j-str';
+        else if (/true|false/.test(match)) cls = 'j-bool';
+        else if (/null/.test(match))  cls = 'j-null';
+        return `<span class="${cls}">${match}</span>`;
+      });
+  }
+
+  function renderFormatted(data) {
+    formattedView.innerHTML = '';
+
+    addGroup('📄 Nota Fiscal', [
+      { label: 'Número',       value: data.numeroNotaFiscal || '—', highlight: true },
+      { label: 'Data Emissão', value: data.dataEmissao || '—' },
+      { label: 'Valor Total',  value: data.valorTotal ? 'R$ ' + Number(data.valorTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—', highlight: true },
+      { label: 'Qtd. Parcelas',value: data.quantidadeParcelas || 1 },
+    ]);
+
+    addGroup('🏢 Fornecedor', [
+      { label: 'Razão Social', value: data.fornecedor?.razaoSocial || '—' },
+      { label: 'Fantasia',     value: data.fornecedor?.fantasia    || '—' },
+      { label: 'CNPJ',         value: data.fornecedor?.cnpj        || '—', highlight: true },
+    ]);
+
+    addGroup('👤 Faturado', [
+      { label: 'Nome Completo', value: data.faturado?.nomeCompleto || '—' },
+      { label: 'CPF',           value: data.faturado?.cpf_Cnpj          || '—', highlight: true },
+    ]);
+
+    if (data.descricaoProdutos) {
+      const grp = document.createElement('div');
+      grp.className = 'field-group';
+      grp.innerHTML = `
+        <div class="field-group-title">🛒 Descrição dos Produtos</div>
+        <div class="fields"><div class="field" style="grid-column:1/-1">
+          <div class="field-value">${data.descricaoProdutos}</div>
+        </div></div>`;
+      formattedView.appendChild(grp);
+    }
+
+    if (data.parcelas?.length > 0) {
+      const grp = document.createElement('div');
+      grp.className = 'field-group';
+      let inner = '<div class="field-group-title">💳 Parcelas</div><div style="padding:16px;">';
+      data.parcelas.forEach(p => {
+        inner += `<div class="parcela-item">
+          <div><div class="field-label">Parcela</div><div class="field-value highlight">${p.numeroParcela || 1}</div></div>
+          <div><div class="field-label">Vencimento</div><div class="field-value">${p.dataVencimento || '—'}</div></div>
+          <div><div class="field-label">Valor</div><div class="field-value highlight">R$ ${Number(p.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div></div>
+        </div>`;
+      });
+      inner += '</div>';
+      grp.innerHTML = inner;
+      formattedView.appendChild(grp);
+    }
+
+    if (data.classificacoesDespesa?.length > 0) {
+      const grp = document.createElement('div');
+      console.log(data.classificacoesDespesa);
+      grp.className = 'field-group';
+      let inner = '<div class="field-group-title">🏷️ Classificação de Despesa</div><div style="padding:16px; display:flex; flex-direction:column; gap:12px;">';
+      data.classificacoesDespesa.forEach(c => {
+        inner += `<div>
+          <div><span class="despesa-tag">${c}</span></div>
+          <div class="field-value" style="margin-top:6px; font-size:13px; color:var(--muted)">${c.descricao || ''}</div>
+        </div>`;
+      });
+      inner += '</div>';
+      grp.innerHTML = inner;
+      formattedView.appendChild(grp);
+    }
+  }
+
+  function addGroup(title, fields) {
+    const grp = document.createElement('div');
+    grp.className = 'field-group';
+    let html = `<div class="field-group-title">${title}</div><div class="fields">`;
+    fields.forEach(f => {
+      html += `<div class="field">
+        <div class="field-label">${f.label}</div>
+        <div class="field-value${f.highlight ? ' highlight' : ''}">${f.value}</div>
+      </div>`;
+    });
+    html += '</div>';
+    grp.innerHTML = html;
+    formattedView.appendChild(grp);
+  }
+
+  // ─── Tabs ──────────────────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ─── Copy JSON ─────────────────────────────────────────────────────────────────
+  btnCopy.addEventListener('click', () => {
+    if (!extractedData) return;
+    navigator.clipboard.writeText(JSON.stringify(extractedData, null, 2)).then(() => {
+      btnCopy.textContent = '✅ Copiado!';
+      btnCopy.classList.add('copied');
+      setTimeout(() => { btnCopy.innerHTML = '📋 Copiar JSON'; btnCopy.classList.remove('copied'); }, 2000);
+    });
+  });
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────────
+  function setLoading(on) {
+    btnExtract.disabled = on;
+    btnExtract.classList.toggle('loading', on);
+  }
+
+  function setProgress(pct, label) {
+    progressBar.classList.add('visible');
+    progressLabel.classList.add('visible');
+    progressFill.style.width = pct + '%';
+    progressLabel.textContent = label;
+  }
+
+  function hideProgress() {
+    progressBar.classList.remove('visible');
+    progressLabel.classList.remove('visible');
+  }
+
+  function showError(msg) {
+    errorBox.textContent = '⚠ ' + msg;
+    errorBox.classList.add('visible');
+  }
+
+  function hideError() {
+    errorBox.classList.remove('visible');
+  }
+  </script>
+  </body>
+</html>
