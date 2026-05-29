@@ -1,388 +1,1113 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extração de Dados de Nota Fiscal</title>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-  </head>
-  <body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema Administrativo-Financeiro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    :root {
+      --bg:        #080b08;
+      --surface:   #0f130e;
+      --surface2:  #161c15;
+      --surface3:  #1e261c;
+      --border:    #263024;
+      --border2:   #2f3b2d;
+      --accent:    #6dde4a;
+      --accent2:   #4aad2e;
+      --text:      #ddebd7;
+      --text2:     #8fab84;
+      --muted:     #4a5e47;
+      --danger:    #e05555;
+      --warning:   #d4a843;
+      --info:      #4a9fd4;
+      --sidebar-w: 240px;
+      --font:      'Space Grotesk', sans-serif;
+      --mono:      'JetBrains Mono', monospace;
+    }
 
-  <div class="container">
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <header>
-      <div class="badge">Projeto Administrativo-Financeiro · N2 Etapa 1</div>
-      <h1>Extração de Dados de<br><span>Nota Fiscal</span></h1>
-      <p class="subtitle">Carregue um PDF de nota fiscal e extraia os dados automaticamente usando IA</p>
-    </header>
+    body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; display: flex; overflow: hidden; }
 
-    <!-- Upload Card -->
-    <div class="card" style="animation-delay:0.1s">
-      <div class="card-header">
-        <div class="icon">📄</div>
-        <h2>Upload do PDF</h2>
-      </div>
-      <div class="card-body">
-        <div class="upload-zone" id="uploadZone">
-          <input type="file" id="fileInput" accept=".pdf" />
-          <span class="upload-icon">⬆️</span>
-          <div class="upload-text">Clique ou arraste o PDF aqui</div>
-          <div class="upload-hint">Selecione o arquivo PDF da nota fiscal</div>
-        </div>
+    /* ── SIDEBAR ── */
+    .sidebar { width: var(--sidebar-w); min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; overflow-y: auto; }
+    .sidebar-logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+    .sidebar-logo .logo-badge { font-family: var(--mono); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--accent); background: rgba(109,222,74,.1); border: 1px solid rgba(109,222,74,.2); padding: 3px 8px; border-radius: 2px; display: inline-block; margin-bottom: 8px; }
+    .sidebar-logo h1 { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.3; }
+    .sidebar-section { padding: 12px 10px 4px; }
+    .sidebar-section-label { font-family: var(--mono); font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); padding: 0 8px; margin-bottom: 4px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all .15s; border: 1px solid transparent; margin-bottom: 1px; }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: rgba(109,222,74,.1); border-color: rgba(109,222,74,.2); color: var(--accent); }
+    .nav-item .icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+    .sidebar-bottom { margin-top: auto; padding: 12px 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); text-align: center; font-family: var(--mono); }
 
-        <div class="file-info" id="fileInfo">
-          <div class="file-icon">📋</div>
-          <div class="file-details">
-            <div class="file-name" id="fileName">—</div>
-            <div class="file-size" id="fileSize">—</div>
+    /* ── MAIN ── */
+    .main { margin-left: var(--sidebar-w); flex: 1; min-height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .topbar { padding: 16px 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); position: sticky; top: 0; z-index: 50; }
+    .topbar-title { font-size: 16px; font-weight: 700; color: var(--text); }
+    .topbar-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .content { padding: 28px 32px; flex: 1; }
+
+    /* ── SCREENS ── */
+    .screen { display: none; animation: fadeUp .3s ease; }
+    .screen.active { display: block; }
+    @keyframes fadeUp { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+    /* ── CARDS ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .card + .card { margin-top: 16px; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+    .card-body { padding: 20px; }
+
+    /* ── BUTTONS ── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 4px; font-family: var(--font); font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all .15s; letter-spacing: .04em; text-transform: uppercase; }
+    .btn-primary { background: var(--accent); color: #050805; }
+    .btn-primary:hover { background: #84e864; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(109,222,74,.25); }
+    .btn-outline { background: transparent; border-color: var(--border2); color: var(--text2); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: rgba(224,85,85,.12); border-color: rgba(224,85,85,.3); color: var(--danger); }
+    .btn-danger:hover { background: rgba(224,85,85,.2); }
+    .btn-success { background: rgba(109,222,74,.12); border-color: rgba(109,222,74,.3); color: var(--accent); }
+    .btn-success:hover { background: rgba(109,222,74,.2); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; }
+
+    /* ── INPUTS ── */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text2); margin-bottom: 6px; }
+    .form-input, .form-select { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; color: var(--text); font-family: var(--font); font-size: 13px; padding: 9px 12px; outline: none; transition: border-color .15s; }
+    .form-input:focus, .form-select:focus { border-color: var(--accent); }
+    .form-input::placeholder { color: var(--muted); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* ── SEARCH ── */
+    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+    .search-input { flex: 1; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; color: var(--text); font-family: var(--font); font-size: 13px; padding: 9px 12px; outline: none; transition: border-color .15s; }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--muted); }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { text-align: left; padding: 10px 14px; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px 14px; color: var(--text); vertical-align: middle; }
+    .td-mono { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+    .td-actions { display: flex; gap: 6px; align-items: center; }
+
+    /* ── BADGES ── */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .badge-active   { background: rgba(109,222,74,.1);  border: 1px solid rgba(109,222,74,.25); color: var(--accent); }
+    .badge-inactive { background: rgba(224,85,85,.1);   border: 1px solid rgba(224,85,85,.25);  color: var(--danger); }
+    .badge-pago     { background: rgba(109,222,74,.1);  border: 1px solid rgba(109,222,74,.25); color: var(--accent); }
+    .badge-pendente { background: rgba(212,168,67,.1);  border: 1px solid rgba(212,168,67,.25); color: var(--warning); }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+    .empty-text { font-size: 14px; }
+
+    /* ── MODAL ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; width: 100%; max-width: 480px; margin: 16px; animation: fadeUp .2s ease; }
+    .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-size: 14px; font-weight: 700; }
+    .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 4px; transition: color .15s; }
+    .modal-close:hover { color: var(--danger); }
+    .modal-body   { padding: 20px; }
+    .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+    /* ── NF EXTRACTOR ── */
+    .upload-zone { border: 2px dashed var(--border2); border-radius: 6px; padding: 36px 20px; text-align: center; cursor: pointer; transition: all .2s; position: relative; background: var(--surface2); }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: rgba(109,222,74,.04); }
+    .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon { font-size: 32px; margin-bottom: 10px; display: block; }
+    .upload-text { font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 4px; }
+    .upload-hint { font-size: 12px; color: var(--muted); }
+    .file-info { display: none; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(109,222,74,.06); border: 1px solid rgba(109,222,74,.2); border-radius: 4px; margin-top: 12px; }
+    .file-info.visible { display: flex; }
+    .file-name { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+    .file-size { font-size: 11px; color: var(--muted); }
+    .progress-wrap { margin-top: 14px; display: none; }
+    .progress-wrap.visible { display: block; }
+    .progress-bar-bg { height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); width: 0%; transition: width .4s ease; border-radius: 99px; }
+    .progress-label { font-size: 11px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+    .error-box { display: none; padding: 12px 16px; background: rgba(224,85,85,.08); border: 1px solid rgba(224,85,85,.25); border-radius: 4px; color: var(--danger); font-size: 12px; margin-top: 12px; font-family: var(--mono); }
+    .error-box.visible { display: block; }
+    .spinner-sm { width: 12px; height: 12px; border: 2px solid rgba(5,8,5,.3); border-top-color: #050805; border-radius: 50%; animation: spin .6s linear infinite; display: none; }
+    .loading-state .spinner-sm { display: block; }
+    .loading-state .btn-label  { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── JSON / TABS ── */
+    .json-wrap { background: #050805; border: 1px solid var(--border); border-radius: 4px; padding: 16px; max-height: 380px; overflow-y: auto; }
+    .json-wrap pre { font-family: var(--mono); font-size: 12px; line-height: 1.7; white-space: pre-wrap; }
+    .j-key { color: var(--accent); } .j-str { color: #f0c060; } .j-num { color: #80c8f0; } .j-bool { color: #e08080; } .j-null { color: var(--muted); }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .tab { padding: 12px 18px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-content { display: none; padding: 20px; }
+    .tab-content.active { display: block; }
+
+    /* ── FORMATTED VIEW ── */
+    .field-group { margin-bottom: 16px; }
+    .field-group-title { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    .field-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
+    .field-value { font-size: 13px; color: var(--text); font-weight: 500; }
+    .field-value.hl { color: var(--accent); }
+    .tag { display: inline-block; background: rgba(109,222,74,.1); border: 1px solid rgba(109,222,74,.25); color: var(--accent); font-family: var(--mono); font-size: 11px; padding: 3px 8px; border-radius: 2px; margin: 2px 2px 2px 0; }
+
+    /* ── SWAL check ── */
+    .check-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid #1e2c1b; animation: fadeUp .25s ease both; }
+    .check-item:last-child { border-bottom: none; }
+    .check-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .check-body { flex: 1; }
+    .check-entity { font-size: 10px; font-family: 'JetBrains Mono', monospace; letter-spacing: .1em; color: #6dde4a; text-transform: uppercase; }
+    .check-name   { font-size: 13px; color: #ddebd7; font-weight: 600; margin: 2px 0; }
+    .check-status { font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+    .check-status.existe { color: #6dde4a; }
+    .check-status.nao   { color: #d4a843; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-badge">Admin · Fin</div>
+    <h1>Projeto Administrativo<br>Financeiro</h1>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Nota Fiscal</div>
+    <div class="nav-item active" data-screen="nf"><span class="icon"><i class="fa-solid fa-file-lines"></i></span> Extração de NF</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Cadastros</div>
+    <div class="nav-item" data-screen="fornecedores"><span class="icon"><i class="fa-solid fa-industry"></i></span> Fornecedores</div>
+    <div class="nav-item" data-screen="clientes"><span class="icon"><i class="fa-solid fa-users"></i></span> Clientes</div>
+    <div class="nav-item" data-screen="faturados"><span class="icon"><i class="fa-solid fa-user"></i></span> Faturados</div>
+    <div class="nav-item" data-screen="despesas"><span class="icon"><i class="fa-solid fa-arrow-trend-down"></i></span> Tipo Despesa</div>
+    <div class="nav-item" data-screen="receitas"><span class="icon"><i class="fa-solid fa-arrow-trend-up"></i></span> Tipo Receita</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Lançamentos</div>
+    <div class="nav-item" data-screen="apagar"><span class="icon"><i class="fa-solid fa-money-bill-wave"></i></span> Contas a Pagar</div>
+    <div class="nav-item" data-screen="areceber"><span class="icon"><i class="fa-solid fa-coins"></i></span> Contas a Receber</div>
+  </div>
+
+  <div class="sidebar-bottom">N2 · Etapa 2 · 2026</div>
+</nav>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbarTitle">Extração de Nota Fiscal</div>
+      <div class="topbar-sub"   id="topbarSub">Carregue um PDF e extraia os dados com IA</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ NF EXTRACTOR ══ -->
+    <div class="screen active" id="screen-nf">
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-upload"></i> Upload do PDF</span></div>
+        <div class="card-body">
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" id="fileInput" accept=".pdf">
+            <span class="upload-icon"><i class="fa-solid fa-upload"></i></span>
+            <div class="upload-text">Clique ou arraste o PDF aqui</div>
+            <div class="upload-hint">Apenas arquivos PDF de nota fiscal</div>
           </div>
-          <button class="file-remove" id="removeFile" title="Remover arquivo">✕</button>
+          <div class="file-info" id="fileInfo">
+            <span><i class="fa-solid fa-file-pdf"></i></span>
+            <div>
+              <div class="file-name" id="fileName">—</div>
+              <div class="file-size" id="fileSize">—</div>
+            </div>
+            <button id="removeFile" style="background:none;border:none;color:var(--muted);cursor:pointer;margin-left:auto;font-size:16px;">✕</button>
+          </div>
+          <div class="error-box" id="errorBox"></div>
+          <div class="progress-wrap" id="progressWrap">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+            <div class="progress-label" id="progressLabel"></div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="btn btn-primary" id="btnExtract" disabled style="width:100%;justify-content:center;padding:12px;">
+              <div class="spinner-sm"></div>
+              <span class="btn-label"><i class="fa-solid fa-gear"></i> EXTRAIR DADOS</span>
+            </button>
+          </div>
         </div>
+      </div>
 
-        <div class="error-box" id="errorBox"></div>
-
-        <div class="progress-bar" id="progressBar">
-          <div class="progress-fill" id="progressFill"></div>
+      <div class="card" id="resultsCard" style="display:none;margin-top:16px;">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-circle-check"></i> Dados Extraídos</span>
+          <button class="btn btn-primary" id="btnImport"><i class="fa-solid fa-rocket"></i> IMPORTAR PARA O SISTEMA</button>
         </div>
-        <div class="progress-label" id="progressLabel"></div>
-
-        <button class="btn-extract" id="btnExtract" disabled>
-          <div class="spinner"></div>
-          <span class="btn-text">⚙ EXTRAIR DADOS</span>
-        </button>
+        <div class="tabs">
+          <div class="tab active" data-tab="formatted">Visualização</div>
+          <div class="tab" data-tab="json">JSON</div>
+        </div>
+        <div class="tab-content active" id="tab-formatted"><div id="formattedView"></div></div>
+        <div class="tab-content" id="tab-json">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <span style="font-size:12px;color:var(--muted);">&lt;/&gt; JSON bruto</span>
+            <button class="btn btn-outline" id="btnCopy"><i class="fa-solid fa-copy"></i> COPIAR</button>
+          </div>
+          <div class="json-wrap"><pre id="jsonOutput"></pre></div>
+        </div>
       </div>
     </div>
 
-    <!-- Results Card -->
-    <div class="card results-card" id="resultsCard" style="animation-delay:0.2s">
-      <div class="card-header">
-        <div class="icon">✅</div>
-        <h2>Dados Extraídos</h2>
+    <!-- ══ FORNECEDORES ══ -->
+    <div class="screen" id="screen-fornecedores">
+      <div class="search-bar">
+        <input class="search-input" id="searchFornecedor" placeholder="Buscar por razão social, fantasia ou CNPJ…">
+        <button class="btn btn-primary" onclick="openModalFornecedor()">+ NOVO</button>
       </div>
-
-      <div class="tabs">
-        <div class="tab active" data-tab="formatted">Visualização Formatada</div>
-        <div class="tab" data-tab="json">JSON</div>
-      </div>
-
-      <!-- Formatted tab -->
-      <div class="tab-content active" id="tab-formatted">
-        <div class="formatted-view" id="formattedView"></div>
-      </div>
-
-      <!-- JSON tab -->
-      <div class="tab-content" id="tab-json">
-        <div class="json-header">
-          <span class="json-title">&lt;&gt; Dados em JSON</span>
-          <button class="btn-copy" id="btnCopy">📋 Copiar JSON</button>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-industry"></i> Fornecedores</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Razão Social</th><th>Fantasia</th><th>CNPJ</th><th>Status</th><th></th></tr></thead>
+              <tbody id="tbodyFornecedores"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="json-block">
-          <pre id="jsonOutput"></pre>
+      </div>
+    </div>
+
+    <!-- ══ CLIENTES ══ -->
+    <div class="screen" id="screen-clientes">
+      <div class="search-bar">
+        <input class="search-input" id="searchCliente" placeholder="Buscar por razão social, fantasia ou CNPJ…">
+        <button class="btn btn-primary" onclick="openModalCliente()">+ NOVO</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-users"></i> Clientes</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Razão Social</th><th>Fantasia</th><th>CNPJ</th><th>Status</th><th></th></tr></thead>
+              <tbody id="tbodyClientes"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FATURADOS ══ -->
+    <div class="screen" id="screen-faturados">
+      <div class="search-bar">
+        <input class="search-input" id="searchFaturado" placeholder="Buscar por nome ou CPF…">
+        <button class="btn btn-primary" onclick="openModalFaturado()">+ NOVO</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-user"></i> Faturados</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome Completo</th><th>CPF</th><th>Status</th><th></th></tr></thead>
+              <tbody id="tbodyFaturados"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TIPO DESPESA ══ -->
+    <div class="screen" id="screen-despesas">
+      <div class="search-bar">
+        <input class="search-input" id="searchDespesa" placeholder="Buscar classificação de despesa…">
+        <button class="btn btn-primary" onclick="openModalClassif('DESPESA')">+ NOVA</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-arrow-trend-down"></i> Tipos de Despesa</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Descrição</th><th>Status</th><th></th></tr></thead>
+              <tbody id="tbodyDespesas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TIPO RECEITA ══ -->
+    <div class="screen" id="screen-receitas">
+      <div class="search-bar">
+        <input class="search-input" id="searchReceita" placeholder="Buscar classificação de receita…">
+        <button class="btn btn-primary" onclick="openModalClassif('RECEITA')">+ NOVA</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-arrow-trend-up"></i> Tipos de Receita</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Descrição</th><th>Status</th><th></th></tr></thead>
+              <tbody id="tbodyReceitas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CONTAS A PAGAR ══ -->
+    <div class="screen" id="screen-apagar">
+      <div class="search-bar">
+        <input class="search-input" id="searchApagar" placeholder="Buscar por fornecedor ou documento…">
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-money-bill-wave"></i> Contas a Pagar</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Doc.</th><th>Fornecedor</th><th>Faturado</th><th>Valor Total</th><th>Emissão</th><th>Parcelas</th></tr></thead>
+              <tbody id="tbodyApagar"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CONTAS A RECEBER ══ -->
+    <div class="screen" id="screen-areceber">
+      <div class="search-bar">
+        <input class="search-input" id="searchAreceber" placeholder="Buscar por cliente ou documento…">
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-coins"></i> Contas a Receber</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Doc.</th><th>Cliente</th><th>Valor Total</th><th>Emissão</th><th>Parcelas</th></tr></thead>
+              <tbody id="tbodyAreceber"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
 
   </div>
+</div>
 
-  <script>
-  // ─── State ────────────────────────────────────────────────────────────────────
-  let selectedFile  = null;
-  let extractedData = null;
+<!-- ── MODAL FORNECEDOR ── -->
+<div class="modal-overlay" id="modalFornecedor">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalFornecedorTitle">Novo Fornecedor</span>
+      <button class="modal-close" onclick="closeModal('modalFornecedor')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="fornecedorEditId">
+      <div class="form-group"><label class="form-label">Razão Social *</label><input class="form-input" id="fornecedorRazao" placeholder="Razão social completa"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">CNPJ</label><input class="form-input" id="fornecedorCnpj" placeholder="00.000.000/0000-00"></div>
+        <div class="form-group"><label class="form-label">Nome Fantasia</label><input class="form-input" id="fornecedorFantasia" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalFornecedor')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveFornecedor()">SALVAR</button>
+    </div>
+  </div>
+</div>
 
-  // ─── Elements ─────────────────────────────────────────────────────────────────
-  const fileInput     = document.getElementById('fileInput');
-  const uploadZone    = document.getElementById('uploadZone');
-  const fileInfo      = document.getElementById('fileInfo');
-  const fileName      = document.getElementById('fileName');
-  const fileSize      = document.getElementById('fileSize');
-  const removeFile    = document.getElementById('removeFile');
-  const btnExtract    = document.getElementById('btnExtract');
-  const errorBox      = document.getElementById('errorBox');
-  const progressBar   = document.getElementById('progressBar');
-  const progressFill  = document.getElementById('progressFill');
-  const progressLabel = document.getElementById('progressLabel');
-  const resultsCard   = document.getElementById('resultsCard');
-  const jsonOutput    = document.getElementById('jsonOutput');
-  const formattedView = document.getElementById('formattedView');
-  const btnCopy       = document.getElementById('btnCopy');
+<!-- ── MODAL CLIENTE ── -->
+<div class="modal-overlay" id="modalCliente">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalClienteTitle">Novo Cliente</span>
+      <button class="modal-close" onclick="closeModal('modalCliente')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="clienteEditId">
+      <div class="form-group"><label class="form-label">Razão Social *</label><input class="form-input" id="clienteRazao" placeholder="Razão social completa"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">CNPJ</label><input class="form-input" id="clienteCnpj" placeholder="00.000.000/0000-00"></div>
+        <div class="form-group"><label class="form-label">Nome Fantasia</label><input class="form-input" id="clienteFantasia" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalCliente')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveCliente()">SALVAR</button>
+    </div>
+  </div>
+</div>
 
-  // ─── File handling ─────────────────────────────────────────────────────────────
-  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+<!-- ── MODAL FATURADO ── -->
+<div class="modal-overlay" id="modalFaturado">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalFaturadoTitle">Novo Faturado</span>
+      <button class="modal-close" onclick="closeModal('modalFaturado')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="faturadoEditId">
+      <div class="form-group"><label class="form-label">Nome Completo *</label><input class="form-input" id="faturadoNome" placeholder="Nome completo"></div>
+      <div class="form-group"><label class="form-label">CPF</label><input class="form-input" id="faturadoCpf" placeholder="000.000.000-00"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalFaturado')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveFaturado()">SALVAR</button>
+    </div>
+  </div>
+</div>
 
-  uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
-  uploadZone.addEventListener('dragleave', ()  => uploadZone.classList.remove('drag-over'));
-  uploadZone.addEventListener('drop', e => {
-    e.preventDefault();
-    uploadZone.classList.remove('drag-over');
-    const f = e.dataTransfer.files[0];
-    if (f && f.type === 'application/pdf') handleFile(f);
-    else showError('Por favor, selecione um arquivo PDF.');
+<!-- ── MODAL CLASSIFICAÇÃO ── -->
+<div class="modal-overlay" id="modalClassif">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalClassifTitle">Nova Classificação</span>
+      <button class="modal-close" onclick="closeModal('modalClassif')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="classifTipo">
+      <input type="hidden" id="classifEditId">
+      <div class="form-group"><label class="form-label">Descrição *</label><input class="form-input" id="classifDescricao" placeholder="Ex: MANUTENÇÃO E OPERAÇÃO"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalClassif')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveClassif()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SWAL DARK ──────────────────────────────────────────────────
+const swalDark = Swal.mixin({
+  background: '#0f130e', color: '#ddebd7',
+  confirmButtonColor: '#6dde4a', cancelButtonColor: '#263024',
+  customClass: { popup: 'swl-popup', confirmButton: 'swl-confirm', cancelButton: 'swl-cancel', title: 'swl-title' }
+});
+const s = document.createElement('style');
+s.textContent = `.swl-popup{border:1px solid #263024!important;border-radius:8px!important;font-family:'Space Grotesk',sans-serif!important}.swl-title{color:#ddebd7!important;font-size:16px!important}.swl-confirm{font-family:'Space Grotesk',sans-serif!important;font-weight:700!important;font-size:12px!important;letter-spacing:.06em!important;color:#050805!important;border-radius:4px!important}.swl-cancel{font-family:'Space Grotesk',sans-serif!important;font-weight:600!important;font-size:12px!important;color:#8fab84!important;border-radius:4px!important;border:1px solid #2f3b2d!important}.swal2-html-container{color:#8fab84!important;font-size:13px!important}`;
+document.head.appendChild(s);
+
+// ── STATE ──────────────────────────────────────────────────────
+let selectedFile = null, extractedData = null;
+
+// ── NAV ────────────────────────────────────────────────────────
+const screenMeta = {
+  nf:          ['Extração de Nota Fiscal',  'Carregue um PDF e extraia os dados com IA'],
+  fornecedores:['Fornecedores',             'Cadastro e gestão de fornecedores'],
+  clientes:    ['Clientes',                 'Cadastro e gestão de clientes'],
+  faturados:   ['Faturados',                'Cadastro de pessoas faturadas'],
+  despesas:    ['Tipo de Despesa',          'Classificações de despesas'],
+  receitas:    ['Tipo de Receita',          'Classificações de receitas'],
+  apagar:      ['Contas a Pagar',           'Lançamentos de contas a pagar'],
+  areceber:    ['Contas a Receber',         'Lançamentos de contas a receber'],
+};
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const screen = item.dataset.screen;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('screen-' + screen).classList.add('active');
+    const [t, sub] = screenMeta[screen] || ['',''];
+    document.getElementById('topbarTitle').textContent = t;
+    document.getElementById('topbarSub').textContent   = sub;
+    loadScreen(screen);
   });
+});
 
-  removeFile.addEventListener('click', () => {
-    selectedFile = null;
-    fileInput.value = '';
-    fileInfo.classList.remove('visible');
-    btnExtract.disabled = true;
-    hideError();
-    resultsCard.classList.remove('visible');
+function loadScreen(s) {
+  if (s === 'fornecedores') loadFornecedores();
+  if (s === 'clientes')     loadClientes();
+  if (s === 'faturados')    loadFaturados();
+  if (s === 'despesas')     loadClassifs('DESPESA',  'tbodyDespesas');
+  if (s === 'receitas')     loadClassifs('RECEITA',  'tbodyReceitas');
+  if (s === 'apagar')       loadMovimentos(1, 'tbodyApagar');
+  if (s === 'areceber')     loadMovimentos(0, 'tbodyAreceber');
+}
+
+// ── API ────────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// ── FORNECEDORES ───────────────────────────────────────────────
+async function loadFornecedores(busca = '') {
+  const tbody = document.getElementById('tbodyFornecedores');
+  tbody.innerHTML = loadingRow(5);
+  try {
+    const q = busca ? `?busca=${encodeURIComponent(busca)}` : '';
+    const rows = await api('GET', `/api/fornecedores${q}`);
+    if (!rows.length) { tbody.innerHTML = emptyRow(5, '<i class="fa-solid fa-industry"></i>', 'Nenhum fornecedor cadastrado'); return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td><strong>${r.razao_social}</strong></td>
+        <td class="td-mono">${r.fantasia || '—'}</td>
+        <td class="td-mono">${r.cnpj || '—'}</td>
+        <td><span class="badge ${r.ativo ? 'badge-active' : 'badge-inactive'}">${r.ativo ? '● Ativo' : '○ Inativo'}</span></td>
+        <td><div class="td-actions">
+          <button class="btn btn-outline" style="padding:4px 10px;font-size:10px;" onclick="editFornecedor(${r.id})">EDITAR</button>
+          <button class="btn ${r.ativo ? 'btn-danger' : 'btn-success'}" style="padding:4px 10px;font-size:10px;"
+            onclick="toggleFornecedor(${r.id},${!r.ativo})">${r.ativo ? 'INATIVAR' : 'REATIVAR'}</button>
+        </div></td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = errorRow(5, e.message); }
+}
+
+function openModalFornecedor() {
+  document.getElementById('fornecedorEditId').value = '';
+  document.getElementById('fornecedorRazao').value  = '';
+  document.getElementById('fornecedorCnpj').value   = '';
+  document.getElementById('fornecedorFantasia').value = '';
+  document.getElementById('modalFornecedorTitle').textContent = 'Novo Fornecedor';
+  document.getElementById('modalFornecedor').classList.add('open');
+}
+async function editFornecedor(id) {
+  const r = await api('GET', `/api/fornecedores/${id}`);
+  document.getElementById('fornecedorEditId').value  = id;
+  document.getElementById('fornecedorRazao').value   = r.razao_social;
+  document.getElementById('fornecedorCnpj').value    = r.cnpj || '';
+  document.getElementById('fornecedorFantasia').value = r.fantasia || '';
+  document.getElementById('modalFornecedorTitle').textContent = 'Editar Fornecedor';
+  document.getElementById('modalFornecedor').classList.add('open');
+}
+async function saveFornecedor() {
+  const editId   = document.getElementById('fornecedorEditId').value;
+  const razao    = document.getElementById('fornecedorRazao').value.trim();
+  const cnpj     = document.getElementById('fornecedorCnpj').value.trim();
+  const fantasia = document.getElementById('fornecedorFantasia').value.trim();
+  if (!razao) return swalDark.fire({ icon: 'warning', title: 'Razão Social é obrigatória' });
+  try {
+    if (editId) await api('PUT',  `/api/fornecedores/${editId}`, { razao_social: razao, cnpj, fantasia });
+    else        await api('POST', '/api/fornecedores',           { razao_social: razao, cnpj, fantasia });
+    closeModal('modalFornecedor');
+    swalDark.fire({ icon: 'success', title: 'Salvo!', timer: 1400, showConfirmButton: false });
+    loadFornecedores();
+  } catch(e) { swalDark.fire({ icon: 'error', title: 'Erro', text: e.message }); }
+}
+async function toggleFornecedor(id, ativo) {
+  const conf = await swalDark.fire({ title: ativo ? 'Reativar?' : 'Inativar?', icon: 'question', showCancelButton: true, confirmButtonText: ativo ? 'REATIVAR' : 'INATIVAR', cancelButtonText: 'CANCELAR' });
+  if (!conf.isConfirmed) return;
+  await api('PATCH', `/api/fornecedores/${id}/status`, { ativo });
+  loadFornecedores();
+  swalDark.fire({ icon: 'success', timer: 1200, showConfirmButton: false });
+}
+
+document.getElementById('searchFornecedor').addEventListener('input', debounce(e => loadFornecedores(e.target.value), 350));
+
+// ── CLIENTES ───────────────────────────────────────────────────
+async function loadClientes(busca = '') {
+  const tbody = document.getElementById('tbodyClientes');
+  tbody.innerHTML = loadingRow(5);
+  try {
+    const q = busca ? `?busca=${encodeURIComponent(busca)}` : '';
+    const rows = await api('GET', `/api/clientes${q}`);
+    if (!rows.length) { tbody.innerHTML = emptyRow(5, '<i class="fa-solid fa-users"></i>', 'Nenhum cliente cadastrado'); return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td><strong>${r.razao_social}</strong></td>
+        <td class="td-mono">${r.fantasia || '—'}</td>
+        <td class="td-mono">${r.cnpj || '—'}</td>
+        <td><span class="badge ${r.ativo ? 'badge-active' : 'badge-inactive'}">${r.ativo ? '● Ativo' : '○ Inativo'}</span></td>
+        <td><div class="td-actions">
+          <button class="btn btn-outline" style="padding:4px 10px;font-size:10px;" onclick="editCliente(${r.id})">EDITAR</button>
+          <button class="btn ${r.ativo ? 'btn-danger' : 'btn-success'}" style="padding:4px 10px;font-size:10px;"
+            onclick="toggleCliente(${r.id},${!r.ativo})">${r.ativo ? 'INATIVAR' : 'REATIVAR'}</button>
+        </div></td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = errorRow(5, e.message); }
+}
+
+function openModalCliente() {
+  document.getElementById('clienteEditId').value  = '';
+  document.getElementById('clienteRazao').value   = '';
+  document.getElementById('clienteCnpj').value    = '';
+  document.getElementById('clienteFantasia').value = '';
+  document.getElementById('modalClienteTitle').textContent = 'Novo Cliente';
+  document.getElementById('modalCliente').classList.add('open');
+}
+async function editCliente(id) {
+  const r = await api('GET', `/api/clientes/${id}`);
+  document.getElementById('clienteEditId').value   = id;
+  document.getElementById('clienteRazao').value    = r.razao_social;
+  document.getElementById('clienteCnpj').value     = r.cnpj || '';
+  document.getElementById('clienteFantasia').value = r.fantasia || '';
+  document.getElementById('modalClienteTitle').textContent = 'Editar Cliente';
+  document.getElementById('modalCliente').classList.add('open');
+}
+async function saveCliente() {
+  const editId   = document.getElementById('clienteEditId').value;
+  const razao    = document.getElementById('clienteRazao').value.trim();
+  const cnpj     = document.getElementById('clienteCnpj').value.trim();
+  const fantasia = document.getElementById('clienteFantasia').value.trim();
+  if (!razao) return swalDark.fire({ icon: 'warning', title: 'Razão Social é obrigatória' });
+  try {
+    if (editId) await api('PUT',  `/api/clientes/${editId}`, { razao_social: razao, cnpj, fantasia });
+    else        await api('POST', '/api/clientes',           { razao_social: razao, cnpj, fantasia });
+    closeModal('modalCliente');
+    swalDark.fire({ icon: 'success', title: 'Salvo!', timer: 1400, showConfirmButton: false });
+    loadClientes();
+  } catch(e) { swalDark.fire({ icon: 'error', title: 'Erro', text: e.message }); }
+}
+async function toggleCliente(id, ativo) {
+  const conf = await swalDark.fire({ title: ativo ? 'Reativar?' : 'Inativar?', icon: 'question', showCancelButton: true, confirmButtonText: ativo ? 'REATIVAR' : 'INATIVAR', cancelButtonText: 'CANCELAR' });
+  if (!conf.isConfirmed) return;
+  await api('PATCH', `/api/clientes/${id}/status`, { ativo });
+  loadClientes();
+  swalDark.fire({ icon: 'success', timer: 1200, showConfirmButton: false });
+}
+
+document.getElementById('searchCliente').addEventListener('input', debounce(e => loadClientes(e.target.value), 350));
+
+// ── FATURADOS ──────────────────────────────────────────────────
+async function loadFaturados(busca = '') {
+  const tbody = document.getElementById('tbodyFaturados');
+  tbody.innerHTML = loadingRow(4);
+  try {
+    const q = busca ? `?busca=${encodeURIComponent(busca)}` : '';
+    const rows = await api('GET', `/api/faturados${q}`);
+    if (!rows.length) { tbody.innerHTML = emptyRow(4, '<i class="fa-solid fa-user"></i>', 'Nenhum faturado cadastrado'); return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td><strong>${r.nome_completo}</strong></td>
+        <td class="td-mono">${r.cpf || '—'}</td>
+        <td><span class="badge ${r.ativo ? 'badge-active' : 'badge-inactive'}">${r.ativo ? '● Ativo' : '○ Inativo'}</span></td>
+        <td><div class="td-actions">
+          <button class="btn btn-outline" style="padding:4px 10px;font-size:10px;" onclick="editFaturado(${r.id})">EDITAR</button>
+          <button class="btn ${r.ativo ? 'btn-danger' : 'btn-success'}" style="padding:4px 10px;font-size:10px;"
+            onclick="toggleFaturado(${r.id},${!r.ativo})">${r.ativo ? 'INATIVAR' : 'REATIVAR'}</button>
+        </div></td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = errorRow(4, e.message); }
+}
+
+function openModalFaturado() {
+  document.getElementById('faturadoEditId').value = '';
+  document.getElementById('faturadoNome').value   = '';
+  document.getElementById('faturadoCpf').value    = '';
+  document.getElementById('modalFaturadoTitle').textContent = 'Novo Faturado';
+  document.getElementById('modalFaturado').classList.add('open');
+}
+async function editFaturado(id) {
+  const r = await api('GET', `/api/faturados/${id}`);
+  document.getElementById('faturadoEditId').value = id;
+  document.getElementById('faturadoNome').value   = r.nome_completo;
+  document.getElementById('faturadoCpf').value    = r.cpf || '';
+  document.getElementById('modalFaturadoTitle').textContent = 'Editar Faturado';
+  document.getElementById('modalFaturado').classList.add('open');
+}
+async function saveFaturado() {
+  const editId = document.getElementById('faturadoEditId').value;
+  const nome   = document.getElementById('faturadoNome').value.trim();
+  const cpf    = document.getElementById('faturadoCpf').value.trim();
+  if (!nome) return swalDark.fire({ icon: 'warning', title: 'Nome é obrigatório' });
+  try {
+    if (editId) await api('PUT',  `/api/faturados/${editId}`, { nome_completo: nome, cpf });
+    else        await api('POST', '/api/faturados',           { nome_completo: nome, cpf });
+    closeModal('modalFaturado');
+    swalDark.fire({ icon: 'success', title: 'Salvo!', timer: 1400, showConfirmButton: false });
+    loadFaturados();
+  } catch(e) { swalDark.fire({ icon: 'error', title: 'Erro', text: e.message }); }
+}
+async function toggleFaturado(id, ativo) {
+  const conf = await swalDark.fire({ title: ativo ? 'Reativar?' : 'Inativar?', icon: 'question', showCancelButton: true, confirmButtonText: ativo ? 'REATIVAR' : 'INATIVAR', cancelButtonText: 'CANCELAR' });
+  if (!conf.isConfirmed) return;
+  await api('PATCH', `/api/faturados/${id}/status`, { ativo });
+  loadFaturados();
+  swalDark.fire({ icon: 'success', timer: 1200, showConfirmButton: false });
+}
+
+document.getElementById('searchFaturado').addEventListener('input', debounce(e => loadFaturados(e.target.value), 350));
+
+// ── CLASSIFICAÇÕES ─────────────────────────────────────────────
+async function loadClassifs(tipo, tbodyId, busca = '') {
+  const tbody = document.getElementById(tbodyId);
+  tbody.innerHTML = loadingRow(3);
+  try {
+    const params = new URLSearchParams({ tipo });
+    if (busca) params.set('busca', busca);
+    const rows = await api('GET', `/api/classificacoes?${params}`);
+    if (!rows.length) { tbody.innerHTML = emptyRow(3, tipo === 'DESPESA' ? '<i class="fa-solid fa-arrow-trend-down"></i>' : '<i class="fa-solid fa-arrow-trend-up"></i>', 'Nenhuma classificação'); return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td><strong>${r.descricao}</strong></td>
+        <td><span class="badge ${r.ativo ? 'badge-active' : 'badge-inactive'}">${r.ativo ? '● Ativo' : '○ Inativo'}</span></td>
+        <td><div class="td-actions">
+          <button class="btn btn-outline" style="padding:4px 10px;font-size:10px;" onclick="editClassif(${r.id},'${tipo}')">EDITAR</button>
+          <button class="btn ${r.ativo ? 'btn-danger' : 'btn-success'}" style="padding:4px 10px;font-size:10px;"
+            onclick="toggleClassif(${r.id},${!r.ativo},'${tbodyId}','${tipo}')">${r.ativo ? 'INATIVAR' : 'REATIVAR'}</button>
+        </div></td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = errorRow(3, e.message); }
+}
+
+function openModalClassif(tipo) {
+  document.getElementById('classifTipo').value     = tipo;
+  document.getElementById('classifEditId').value   = '';
+  document.getElementById('classifDescricao').value = '';
+  document.getElementById('modalClassifTitle').textContent = `Nova Classificação de ${tipo === 'DESPESA' ? 'Despesa' : 'Receita'}`;
+  document.getElementById('modalClassif').classList.add('open');
+}
+async function editClassif(id, tipo) {
+  const rows = await api('GET', `/api/classificacoes?tipo=${tipo}`);
+  const r = rows.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('classifTipo').value     = tipo;
+  document.getElementById('classifEditId').value   = id;
+  document.getElementById('classifDescricao').value = r.descricao;
+  document.getElementById('modalClassifTitle').textContent = 'Editar Classificação';
+  document.getElementById('modalClassif').classList.add('open');
+}
+async function saveClassif() {
+  const tipo      = document.getElementById('classifTipo').value;
+  const editId    = document.getElementById('classifEditId').value;
+  const descricao = document.getElementById('classifDescricao').value.trim();
+  if (!descricao) return swalDark.fire({ icon: 'warning', title: 'Descrição é obrigatória' });
+  try {
+    if (editId) await api('PUT',  `/api/classificacoes/${editId}`, { descricao });
+    else        await api('POST', '/api/classificacoes',            { tipo, descricao });
+    closeModal('modalClassif');
+    swalDark.fire({ icon: 'success', title: 'Salvo!', timer: 1400, showConfirmButton: false });
+    if (tipo === 'DESPESA') loadClassifs('DESPESA', 'tbodyDespesas');
+    else                    loadClassifs('RECEITA',  'tbodyReceitas');
+  } catch(e) { swalDark.fire({ icon: 'error', title: 'Erro', text: e.message }); }
+}
+async function toggleClassif(id, ativo, tbodyId, tipo) {
+  const conf = await swalDark.fire({ title: ativo ? 'Reativar?' : 'Inativar?', icon: 'question', showCancelButton: true, confirmButtonText: ativo ? 'REATIVAR' : 'INATIVAR', cancelButtonText: 'CANCELAR' });
+  if (!conf.isConfirmed) return;
+  await api('PATCH', `/api/classificacoes/${id}/status`, { ativo });
+  loadClassifs(tipo, tbodyId);
+  swalDark.fire({ icon: 'success', timer: 1200, showConfirmButton: false });
+}
+
+document.getElementById('searchDespesa').addEventListener('input', debounce(e => loadClassifs('DESPESA', 'tbodyDespesas', e.target.value), 350));
+document.getElementById('searchReceita').addEventListener('input', debounce(e => loadClassifs('RECEITA', 'tbodyReceitas', e.target.value), 350));
+
+// ── MOVIMENTOS ─────────────────────────────────────────────────
+async function loadMovimentos(tipo, tbodyId, busca = '') {
+  const tbody = document.getElementById(tbodyId);
+  const cols = tipo === 1 ? 6 : 5;
+  tbody.innerHTML = loadingRow(cols);
+  try {
+    const params = new URLSearchParams({ tipo_lancamento: tipo });
+    if (busca) params.set('busca', busca);
+    const rows = await api('GET', `/api/movimentos?${params}`);
+    if (!rows.length) { tbody.innerHTML = emptyRow(cols, tipo === 1 ? '<i class="fa-solid fa-money-bill-wave"></i>' : '<i class="fa-solid fa-coins"></i>', 'Nenhum lançamento'); return; }
+    tbody.innerHTML = rows.map(r => {
+      const parc = r.parcelas || [];
+      const pend = parc.filter(p => p.status === 'PENDENTE').length;
+      return `<tr>
+        <td class="td-mono">${r.numero_documento || '—'}</td>
+        <td><strong>${tipo === 1 ? (r.fornecedor_nome || '—') : (r.cliente_nome || '—')}</strong></td>
+        ${tipo === 1 ? `<td>${r.faturado_nome || '—'}</td>` : ''}
+        <td class="td-mono" style="color:var(--accent);">R$ ${Number(r.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+        <td class="td-mono">${r.data_emissao ? new Date(r.data_emissao).toLocaleDateString('pt-BR') : '—'}</td>
+        <td>
+          <span class="badge ${pend > 0 ? 'badge-pendente' : 'badge-pago'}">${pend > 0 ? `${pend}/${parc.length} PEND.` : `${parc.length}/${parc.length} PAGO`}</span>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { tbody.innerHTML = errorRow(cols, e.message); }
+}
+
+document.getElementById('searchApagar').addEventListener('input',   debounce(e => loadMovimentos(1, 'tbodyApagar',   e.target.value), 350));
+document.getElementById('searchAreceber').addEventListener('input', debounce(e => loadMovimentos(0, 'tbodyAreceber', e.target.value), 350));
+
+// ── MODALS ─────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ── NF UPLOAD ──────────────────────────────────────────────────
+const fileInput     = document.getElementById('fileInput');
+const uploadZone    = document.getElementById('uploadZone');
+const fileInfo      = document.getElementById('fileInfo');
+const btnExtract    = document.getElementById('btnExtract');
+const errorBox      = document.getElementById('errorBox');
+const progressWrap  = document.getElementById('progressWrap');
+const progressFill  = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', ()  => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f?.type === 'application/pdf') handleFile(f);
+  else showError('Selecione um arquivo PDF.');
+});
+document.getElementById('removeFile').addEventListener('click', () => {
+  selectedFile = null; fileInput.value = '';
+  fileInfo.classList.remove('visible');
+  btnExtract.disabled = true;
+  hideError(); hideProgress();
+  document.getElementById('resultsCard').style.display = 'none';
+});
+
+function handleFile(file) {
+  if (!file) return;
+  if (file.type !== 'application/pdf') { showError('Selecione um arquivo PDF.'); return; }
+  selectedFile = file;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = formatBytes(file.size);
+  fileInfo.classList.add('visible');
+  btnExtract.disabled = false;
+  hideError();
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+// ── EXTRACT ────────────────────────────────────────────────────
+btnExtract.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  hideError(); setLoading(true); setProgress(10, 'Lendo o PDF…');
+  try {
+    const base64   = await fileToBase64(selectedFile);
+    const fileText = await pdfToText(selectedFile);
+    setProgress(40, 'Enviando para o servidor…');
+    const result = await api('POST', '/api/extract', { base64, mediaType: selectedFile.type, text: fileText });
+    setProgress(90, 'Processando…');
+    extractedData = result.data;
+    setProgress(100, 'Concluído!');
+    setTimeout(() => { setLoading(false); renderResults(extractedData); }, 500);
+  } catch(e) {
+    setLoading(false); hideProgress();
+    showError('Erro: ' + e.message);
+  }
+});
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Falha ao ler arquivo'));
+    r.readAsDataURL(file);
   });
+}
 
-  function handleFile(file) {
-    if (!file) return;
-    if (file.type !== 'application/pdf') { showError('Por favor, selecione um arquivo PDF.'); return; }
-    selectedFile = file;
-    fileName.textContent = file.name;
-    fileSize.textContent  = formatBytes(file.size);
-    fileInfo.classList.add('visible');
-    btnExtract.disabled = false;
-    hideError();
+async function pdfToText(file) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  const ab  = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  let text  = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(x => x.str).join(' ') + '\n\n';
   }
+  return text.trim();
+}
 
-  function formatBytes(b) {
-    if (b < 1024)    return b + ' B';
-    if (b < 1048576) return (b / 1024).toFixed(2) + ' KB';
-    return (b / 1048576).toFixed(2) + ' MB';
-  }
+// ── RENDER RESULTS ─────────────────────────────────────────────
+function renderResults(data) {
+  document.getElementById('resultsCard').style.display = 'block';
+  document.getElementById('jsonOutput').innerHTML = syntaxHL(JSON.stringify(data, null, 2));
+  const fv = document.getElementById('formattedView');
+  fv.innerHTML = `
+    <div class="field-group">
+      <div class="field-group-title"><i class="fa-solid fa-file-lines"></i> Nota Fiscal</div>
+      <div class="fields">
+        <div><div class="field-label">Número</div><div class="field-value hl">${data.numeroNotaFiscal||'—'}</div></div>
+        <div><div class="field-label">Emissão</div><div class="field-value">${data.dataEmissao||'—'}</div></div>
+        <div><div class="field-label">Valor Total</div><div class="field-value hl">R$ ${Number(data.valorTotal||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+        <div><div class="field-label">Parcelas</div><div class="field-value">${data.quantidadeParcelas||1}</div></div>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-group-title"><i class="fa-solid fa-industry"></i> Fornecedor</div>
+      <div class="fields">
+        <div><div class="field-label">Razão Social</div><div class="field-value">${data.fornecedor?.razaoSocial||'—'}</div></div>
+        <div><div class="field-label">Fantasia</div><div class="field-value">${data.fornecedor?.fantasia||'—'}</div></div>
+        <div><div class="field-label">CNPJ</div><div class="field-value hl">${data.fornecedor?.cnpj||'—'}</div></div>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-group-title"><i class="fa-solid fa-user"></i> Faturado</div>
+      <div class="fields">
+        <div><div class="field-label">Nome</div><div class="field-value">${data.faturado?.nomeCompleto||'—'}</div></div>
+        <div><div class="field-label">CPF/CNPJ</div><div class="field-value hl">${data.faturado?.cpf_cnpj||'—'}</div></div>
+      </div>
+    </div>
+    ${data.descricaoProdutos ? `<div class="field-group"><div class="field-group-title"><i class="fa-solid fa-cart-shopping"></i> Produtos</div><div style="font-size:13px;color:var(--text);">${data.descricaoProdutos}</div></div>` : ''}
+    ${data.classificacoesDespesa?.length ? `<div class="field-group"><div class="field-group-title"><i class="fa-solid fa-tag"></i> Classificação de Despesa</div><div>${data.classificacoesDespesa.map(c=>`<span class="tag">${c}</span>`).join('')}</div></div>` : ''}
+    ${data.parcelas?.length ? `
+    <div class="field-group">
+      <div class="field-group-title"><i class="fa-solid fa-credit-card"></i> Parcelas</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Vencimento</th><th>Valor</th></tr></thead>
+        <tbody>${data.parcelas.map(p=>`<tr><td class="td-mono">${p.numeroParcela}</td><td class="td-mono">${p.dataVencimento||'—'}</td><td class="td-mono" style="color:var(--accent);">R$ ${Number(p.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </div>` : ''}
+  `;
+  document.getElementById('resultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
-  // ─── Extract ───────────────────────────────────────────────────────────────────
-  btnExtract.addEventListener('click', extractData);
+// ── TABS ───────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const card = tab.closest('.card');
+    card.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    card.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab)?.classList.add('active');
+  });
+});
 
-  async function extractData() {
-    if (!selectedFile) return;
-    hideError();
-    setLoading(true);
-    setProgress(10, 'Lendo o arquivo PDF...');
+document.getElementById('btnCopy').addEventListener('click', () => {
+  if (!extractedData) return;
+  navigator.clipboard.writeText(JSON.stringify(extractedData, null, 2)).then(() => {
+    document.getElementById('btnCopy').innerHTML = '<i class="fa-solid fa-check"></i> COPIADO';
+    setTimeout(() => document.getElementById('btnCopy').innerHTML = '<i class="fa-solid fa-copy"></i> COPIAR', 2000);
+  });
+});
+
+// ── IMPORTAR ───────────────────────────────────────────────────
+document.getElementById('btnImport').addEventListener('click', async () => {
+  if (!extractedData) return;
+
+  await swalDark.fire({
+    title: '<i class="fa-solid fa-magnifying-glass"></i> Verificando registros…',
+    html: `<div id="checkList" style="text-align:left;margin-top:8px;"></div>`,
+    showConfirmButton: false,
+    allowOutsideClick: false,
+    didOpen: async () => {
+      const list = document.getElementById('checkList');
+      list.innerHTML = '<div style="color:#4a5e47;font-size:12px;font-family:monospace;">Consultando banco de dados…</div>';
+      await delay(600);
+
+      try {
+        const checks = await api('POST', '/api/importar/verificar', {
+          fornecedor: extractedData.fornecedor,
+          faturado:   extractedData.faturado,
+          classificacoesDespesa: extractedData.classificacoesDespesa
+        });
+
+        list.innerHTML = '';
+        for (const item of checks) {
+          await delay(350);
+          const div = document.createElement('div');
+          div.className = 'check-item';
+          div.innerHTML = `
+            <span class="check-icon">${item.existe ? '<i class="fa-solid fa-circle-check" style="color:#6dde4a;"></i>' : '<i class="fa-solid fa-circle-plus" style="color:#d4a843;"></i>'}</span>
+            <div class="check-body">
+              <div class="check-entity">${item.entidade}</div>
+              <div class="check-name">${item.nome || '—'}</div>
+              ${item.doc ? `<div style="font-size:11px;color:#4a5e47;font-family:monospace;">${item.doc}</div>` : ''}
+              <div class="check-status ${item.existe ? 'existe' : 'nao'}">
+                ${item.existe ? `✓ EXISTE — ID: ${item.id}` : '✗ NÃO EXISTE — será criado'}
+              </div>
+            </div>`;
+          list.appendChild(div);
+        }
+
+        await delay(400);
+        Swal.update({ showConfirmButton: true, confirmButtonText: '<i class="fa-solid fa-rocket"></i> CONFIRMAR IMPORTAÇÃO', showCancelButton: true, cancelButtonText: 'CANCELAR', allowOutsideClick: true });
+      } catch(e) {
+        list.innerHTML = `<div style="color:#e05555;">Erro: ${e.message}</div>`;
+        Swal.update({ showConfirmButton: false, showCancelButton: true, cancelButtonText: 'FECHAR', allowOutsideClick: true });
+      }
+    }
+  }).then(async result => {
+    if (!result.isConfirmed) return;
+
+    swalDark.fire({ title: '<i class="fa-solid fa-spinner fa-spin"></i> Importando…', html: '<div style="color:#8fab84;font-size:13px;font-family:monospace;">Criando registros no banco de dados…</div>', showConfirmButton: false, allowOutsideClick: false });
 
     try {
-      // 1. Converte para base64
-      const base64 = await fileToBase64(selectedFile);
-      setProgress(30, 'Extraindo texto do PDF...');
-      const fileText = await fileToText(selectedFile);
-      setProgress(45, 'Enviando para o servidor...');
-
-      // 2. Envia para o backend local (sem CORS, sem expor API key)
-      const response = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          base64,
-          mediaType: selectedFile.type || 'application/pdf',
-          text: fileText
-        })
+      const resp = await api('POST', '/api/importar', {
+        ...extractedData,
+        parcelas: extractedData.parcelas?.map(p => ({ dataVencimento: p.dataVencimento, valor: p.valor }))
       });
 
-      setProgress(70, 'Processando nota fiscal com IA...');
+      const mov = resp.movimento;
+      const log = resp.log || [];
+      const logHtml = log.map(l => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1e2c1b;">
+          <span>${l.status === 'CRIADO' ? '<i class="fa-solid fa-circle-plus" style="color:#d4a843;"></i>' : '<i class="fa-solid fa-circle-check" style="color:#6dde4a;"></i>'}</span>
+          <div>
+            <div style="font-size:10px;color:#6dde4a;font-family:monospace;letter-spacing:.08em;">${l.entidade}</div>
+            <div style="font-size:13px;color:#ddebd7;font-weight:600;">${l.nome}</div>
+            <div style="font-size:11px;color:#4a5e47;font-family:monospace;">${l.status} · ID: ${l.id}</div>
+          </div>
+        </div>`).join('');
 
-      const text = await response.text();
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (parseErr) {
-        throw new Error(`Resposta inválida do servidor: ${text}`);
-      }
-
-      if (!response.ok) {
-        throw new Error(result.error || `Erro HTTP ${response.status}`);
-      }
-
-      extractedData = result.data;
-      setProgress(100, 'Extração concluída!');
-
-      setTimeout(() => {
-        setLoading(false);
-        renderResults(extractedData);
-      }, 600);
-
-    } catch (err) {
-      setLoading(false);
-      hideProgress();
-      showError('Erro ao extrair dados: ' + err.message);
-    }
-  }
-
-  function fileToBase64(file) {
-    return new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload  = () => res(r.result.split(',')[1]);
-      r.onerror = () => rej(new Error('Falha ao ler arquivo'));
-      r.readAsDataURL(file);
-    });
-  }
-
-  async function fileToText(file) {
-    if (!window.pdfjsLib) {
-      throw new Error('PDF.js não carregado.');
-    }
-
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const pageText = content.items.map(item => item.str).join(' ');
-      fullText += pageText + '\n\n';
-    }
-
-    return fullText.trim();
-  }
-
-  // ─── Render results ────────────────────────────────────────────────────────────
-  function renderResults(data) {
-    renderJSON(data);
-    renderFormatted(data);
-    resultsCard.classList.add('visible');
-    resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function renderJSON(data) {
-    jsonOutput.innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
-  }
-
-  function syntaxHighlight(json) {
-    return json
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
-        let cls = 'j-num';
-        if (/^"/.test(match))         cls = /:$/.test(match) ? 'j-key' : 'j-str';
-        else if (/true|false/.test(match)) cls = 'j-bool';
-        else if (/null/.test(match))  cls = 'j-null';
-        return `<span class="${cls}">${match}</span>`;
+      swalDark.fire({
+        icon: 'success',
+        title: '<i class="fa-solid fa-circle-check"></i> Lançamento Registrado!',
+        html: `
+          <div style="text-align:left;">
+            <div style="margin-bottom:12px;padding:10px 14px;background:rgba(109,222,74,.08);border:1px solid rgba(109,222,74,.2);border-radius:4px;">
+              <div style="font-size:10px;color:#6dde4a;font-family:monospace;letter-spacing:.08em;margin-bottom:4px;">MOVIMENTO</div>
+              <div style="font-size:14px;color:#ddebd7;font-weight:700;">NF ${mov.numero_documento || mov.id}</div>
+              <div style="font-size:13px;color:#6dde4a;">R$ ${Number(mov.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+              <div style="font-size:11px;color:#4a5e47;font-family:monospace;">ID: ${mov.id} · ${mov.parcelas?.length || 1} parcela(s)</div>
+            </div>
+            <div style="font-size:11px;color:#4a5e47;margin-bottom:6px;font-family:monospace;letter-spacing:.08em;">REGISTROS AFETADOS</div>
+            ${logHtml}
+          </div>`,
+        confirmButtonText: 'FECHAR',
+        width: 500,
       });
-  }
 
-  function renderFormatted(data) {
-    formattedView.innerHTML = '';
-
-    addGroup('📄 Nota Fiscal', [
-      { label: 'Número',       value: data.numeroNotaFiscal || '—', highlight: true },
-      { label: 'Data Emissão', value: data.dataEmissao || '—' },
-      { label: 'Valor Total',  value: data.valorTotal ? 'R$ ' + Number(data.valorTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—', highlight: true },
-      { label: 'Qtd. Parcelas',value: data.quantidadeParcelas || 1 },
-    ]);
-
-    addGroup('🏢 Fornecedor', [
-      { label: 'Razão Social', value: data.fornecedor?.razaoSocial || '—' },
-      { label: 'Fantasia',     value: data.fornecedor?.fantasia    || '—' },
-      { label: 'CNPJ',         value: data.fornecedor?.cnpj        || '—', highlight: true },
-    ]);
-
-    addGroup('👤 Faturado', [
-      { label: 'Nome Completo', value: data.faturado?.nomeCompleto || '—' },
-      { label: 'CPF',           value: data.faturado?.cpf_Cnpj          || '—', highlight: true },
-    ]);
-
-    if (data.descricaoProdutos) {
-      const grp = document.createElement('div');
-      grp.className = 'field-group';
-      grp.innerHTML = `
-        <div class="field-group-title">🛒 Descrição dos Produtos</div>
-        <div class="fields"><div class="field" style="grid-column:1/-1">
-          <div class="field-value">${data.descricaoProdutos}</div>
-        </div></div>`;
-      formattedView.appendChild(grp);
+      loadMovimentos(1, 'tbodyApagar');
+    } catch(e) {
+      swalDark.fire({ icon: 'error', title: 'Erro na importação', text: e.message });
     }
-
-    if (data.parcelas?.length > 0) {
-      const grp = document.createElement('div');
-      grp.className = 'field-group';
-      let inner = '<div class="field-group-title">💳 Parcelas</div><div style="padding:16px;">';
-      data.parcelas.forEach(p => {
-        inner += `<div class="parcela-item">
-          <div><div class="field-label">Parcela</div><div class="field-value highlight">${p.numeroParcela || 1}</div></div>
-          <div><div class="field-label">Vencimento</div><div class="field-value">${p.dataVencimento || '—'}</div></div>
-          <div><div class="field-label">Valor</div><div class="field-value highlight">R$ ${Number(p.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div></div>
-        </div>`;
-      });
-      inner += '</div>';
-      grp.innerHTML = inner;
-      formattedView.appendChild(grp);
-    }
-
-    if (data.classificacoesDespesa?.length > 0) {
-      const grp = document.createElement('div');
-      console.log(data.classificacoesDespesa);
-      grp.className = 'field-group';
-      let inner = '<div class="field-group-title">🏷️ Classificação de Despesa</div><div style="padding:16px; display:flex; flex-direction:column; gap:12px;">';
-      data.classificacoesDespesa.forEach(c => {
-        inner += `<div>
-          <div><span class="despesa-tag">${c}</span></div>
-          <div class="field-value" style="margin-top:6px; font-size:13px; color:var(--muted)">${c.descricao || ''}</div>
-        </div>`;
-      });
-      inner += '</div>';
-      grp.innerHTML = inner;
-      formattedView.appendChild(grp);
-    }
-  }
-
-  function addGroup(title, fields) {
-    const grp = document.createElement('div');
-    grp.className = 'field-group';
-    let html = `<div class="field-group-title">${title}</div><div class="fields">`;
-    fields.forEach(f => {
-      html += `<div class="field">
-        <div class="field-label">${f.label}</div>
-        <div class="field-value${f.highlight ? ' highlight' : ''}">${f.value}</div>
-      </div>`;
-    });
-    html += '</div>';
-    grp.innerHTML = html;
-    formattedView.appendChild(grp);
-  }
-
-  // ─── Tabs ──────────────────────────────────────────────────────────────────────
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-    });
   });
+});
 
-  // ─── Copy JSON ─────────────────────────────────────────────────────────────────
-  btnCopy.addEventListener('click', () => {
-    if (!extractedData) return;
-    navigator.clipboard.writeText(JSON.stringify(extractedData, null, 2)).then(() => {
-      btnCopy.textContent = '✅ Copiado!';
-      btnCopy.classList.add('copied');
-      setTimeout(() => { btnCopy.innerHTML = '📋 Copiar JSON'; btnCopy.classList.remove('copied'); }, 2000);
+// ── HELPERS ────────────────────────────────────────────────────
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setLoading(on) { btnExtract.disabled = on; btnExtract.classList.toggle('loading-state', on); }
+function setProgress(pct, label) { progressWrap.classList.add('visible'); progressFill.style.width = pct + '%'; progressLabel.textContent = label; }
+function hideProgress() { progressWrap.classList.remove('visible'); }
+function showError(msg) { errorBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + msg; errorBox.classList.add('visible'); }
+function hideError()    { errorBox.classList.remove('visible'); }
+function loadingRow(cols) { return `<tr><td colspan="${cols}"><div class="empty"><div class="empty-icon"><i class="fa-solid fa-rotate fa-spin"></i></div><div class="empty-text">Carregando…</div></div></td></tr>`; }
+function emptyRow(cols, icon, msg) { return `<tr><td colspan="${cols}"><div class="empty"><div class="empty-icon">${icon}</div><div class="empty-text">${msg}</div></div></td></tr>`; }
+function errorRow(cols, msg) { return `<tr><td colspan="${cols}"><div class="empty"><div class="empty-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="empty-text">${msg}</div></div></td></tr>`; }
+
+function syntaxHL(json) {
+  return json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, m => {
+      let c = 'j-num';
+      if (/^"/.test(m)) c = /:$/.test(m) ? 'j-key' : 'j-str';
+      else if (/true|false/.test(m)) c = 'j-bool';
+      else if (/null/.test(m)) c = 'j-null';
+      return `<span class="${c}">${m}</span>`;
     });
-  });
-
-  // ─── Helpers ───────────────────────────────────────────────────────────────────
-  function setLoading(on) {
-    btnExtract.disabled = on;
-    btnExtract.classList.toggle('loading', on);
-  }
-
-  function setProgress(pct, label) {
-    progressBar.classList.add('visible');
-    progressLabel.classList.add('visible');
-    progressFill.style.width = pct + '%';
-    progressLabel.textContent = label;
-  }
-
-  function hideProgress() {
-    progressBar.classList.remove('visible');
-    progressLabel.classList.remove('visible');
-  }
-
-  function showError(msg) {
-    errorBox.textContent = '⚠ ' + msg;
-    errorBox.classList.add('visible');
-  }
-
-  function hideError() {
-    errorBox.classList.remove('visible');
-  }
-  </script>
-  </body>
+}
+</script>
+</body>
 </html>

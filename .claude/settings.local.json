@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); require\\('./db/index.js'\\); console.log\\('DB module carregado com sucesso'\\);\")",
+      "Bash(node db/index.js)",
+      "Bash(wsl --exec bash -c \"find / -name 'nf-extractor' -type d 2>/dev/null | head -5\")",
+      "PowerShell(wsl -e bash -c \"cd /home/projects/unirv/nf-extractor && node -e 'require\\(\\\\\"dotenv\\\\\"\\).config\\(\\); require\\(\\\\\"./db/index.js\\\\\"\\); console.log\\(\\\\\"OK\\\\\"\\)' 2>&1\")",
+      "PowerShell(wsl -e bash -c \"cd /home/projects/unirv/nf-extractor && node db/index.js 2>&1\")",
+      "PowerShell(wsl -e bash -c \"dig +short A db.txpywwchoirswrinwpdx.supabase.co; echo '---IPv6---'; dig +short AAAA db.txpywwchoirswrinwpdx.supabase.co\" 2>&1)",
+      "PowerShell(wsl -e bash -c \"nslookup db.txpywwchoirswrinwpdx.supabase.co 2>&1\" 2>&1)",
+      "PowerShell(Resolve-DnsName db.txpywwchoirswrinwpdx.supabase.co 2>&1)"
+    ]
+  }
+}
