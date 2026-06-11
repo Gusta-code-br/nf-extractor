@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GestorPro · Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-badge">GestorPro · Fin</div>
+    <div class="login-title">Administrativo Financeiro</div>
+    <div class="login-sub">Faça login para acessar o sistema</div>
+
+    <div class="login-error" id="loginError"></div>
+
+    <form id="loginForm" onsubmit="doLogin(event)">
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input class="form-input" id="loginEmail" type="email" placeholder="seu@email.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input class="form-input" id="loginSenha" type="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" type="submit" id="btnLogin" style="width:100%;justify-content:center;padding:12px;margin-top:8px;">
+        <div class="spinner-sm" id="loginSpinner"></div>
+        <span id="loginBtnLabel"><i class="fa-solid fa-right-to-bracket"></i> ENTRAR</span>
+      </button>
+    </form>
+
+    <div style="margin-top:20px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);">
+      N3 · Etapa 4 · 2026
+    </div>
+  </div>
+</div>
+
+<style>
+  #loginSpinner { display: none; }
+  #loginSpinner.spin { display: block; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner-sm { width: 14px; height: 14px; border: 2px solid rgba(5,8,5,.3); border-top-color: #050805; border-radius: 50%; }
+</style>
+
+<script src="js/config.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script>
+  // Se já logado, vai direto para o sistema
+  if (localStorage.getItem('gp_token')) window.location.href = '/';
+
+  async function doLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value.trim();
+    const senha = document.getElementById('loginSenha').value;
+    const errEl = document.getElementById('loginError');
+    const btn   = document.getElementById('btnLogin');
+    const spinner = document.getElementById('loginSpinner');
+    const label   = document.getElementById('loginBtnLabel');
+
+    errEl.classList.remove('visible');
+    btn.disabled = true;
+    spinner.classList.add('spin');
+    label.style.display = 'none';
+
+    try {
+      const res = await fetch((window.API_BASE || '') + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, senha })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro no login');
+
+      localStorage.setItem('gp_token', data.token);
+      localStorage.setItem('gp_user',  JSON.stringify(data.user));
+      window.location.href = '/';
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.classList.add('visible');
+      btn.disabled = false;
+      spinner.classList.remove('spin');
+      label.style.display = '';
+    }
+  }
+</script>
+</body>
+</html>

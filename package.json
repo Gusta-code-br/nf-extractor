@@ -1,16 +1,19 @@
 {
-  "name": "nf-extractor",
-  "version": "2.0.0",
-  "description": "Projeto Administrativo-Financeiro N2",
-  "main": "server.js",
+  "name": "gestorpro-financeiro",
+  "version": "3.0.0",
+  "description": "GestorPro Financeiro — N3 Etapa 4",
+  "main": "backend/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
     "openai": "^6.35.0",
     "pg": "^8.13.0"
   }

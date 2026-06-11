@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GestorPro · Financeiro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-badge">GestorPro · Fin</div>
+    <h1>Administrativo<br>Financeiro</h1>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Visão Geral</div>
+    <div class="nav-item active" data-screen="dashboard"><span class="icon"><i class="fa-solid fa-gauge-high"></i></span> Dashboard</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Nota Fiscal</div>
+    <div class="nav-item" data-screen="nf"><span class="icon"><i class="fa-solid fa-file-lines"></i></span> Extração de NF</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Cadastros</div>
+    <div class="nav-item" data-screen="fornecedores"><span class="icon"><i class="fa-solid fa-industry"></i></span> Fornecedores</div>
+    <div class="nav-item" data-screen="clientes"><span class="icon"><i class="fa-solid fa-users"></i></span> Clientes</div>
+    <div class="nav-item" data-screen="faturados"><span class="icon"><i class="fa-solid fa-user"></i></span> Faturados</div>
+    <div class="nav-item" data-screen="bancos"><span class="icon"><i class="fa-solid fa-building-columns"></i></span> Bancos</div>
+    <div class="nav-item" data-screen="despesas"><span class="icon"><i class="fa-solid fa-arrow-trend-down"></i></span> Tipo Despesa</div>
+    <div class="nav-item" data-screen="receitas"><span class="icon"><i class="fa-solid fa-arrow-trend-up"></i></span> Tipo Receita</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Lançamentos</div>
+    <div class="nav-item" data-screen="apagar"><span class="icon"><i class="fa-solid fa-money-bill-wave"></i></span> Contas a Pagar</div>
+    <div class="nav-item" data-screen="areceber"><span class="icon"><i class="fa-solid fa-coins"></i></span> Contas a Receber</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Relatórios</div>
+    <div class="nav-item" data-screen="relatorio"><span class="icon"><i class="fa-solid fa-chart-bar"></i></span> Rel. Financeiro</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Inteligência</div>
+    <div class="nav-item" data-screen="rag"><span class="icon"><i class="fa-solid fa-robot"></i></span> Assistente IA</div>
+  </div>
+
+  <!-- Seção admin — visível apenas para perfil Administrador -->
+  <div class="sidebar-section admin-only" style="display:none;">
+    <div class="sidebar-section-label">Administração</div>
+    <div class="nav-item" data-screen="usuarios"><span class="icon"><i class="fa-solid fa-user-gear"></i></span> Usuários</div>
+    <div class="nav-item" data-screen="perfis"><span class="icon"><i class="fa-solid fa-shield-halved"></i></span> Perfis de Acesso</div>
+  </div>
+
+  <div class="sidebar-bottom">N3 · Etapa 4 · 2026</div>
+</nav>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbarTitle">Dashboard</div>
+      <div class="topbar-sub"   id="topbarSub">Visão geral financeira</div>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-date" id="topbarDate"></span>
+      <span class="topbar-user" id="topbarUser"></span>
+      <button onclick="logout()" class="btn btn-outline" style="padding:5px 12px;font-size:10px;"><i class="fa-solid fa-right-from-bracket"></i> SAIR</button>
+      <span class="topbar-badge">N3 · Etapa 4</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="screen active" id="screen-dashboard">
+      <div id="alertVencidas" class="alert-vencidas hidden">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span id="alertVencidasText"></span>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:10px;margin-left:auto;" onclick="navTo('apagar')">VER CONTAS</button>
+      </div>
+      <div id="dashboardContent">
+        <div class="empty"><div class="empty-icon"><i class="fa-solid fa-rotate fa-spin"></i></div><div class="empty-text">Carregando dashboard…</div></div>
+      </div>
+    </div>
+
+    <!-- ══ NF EXTRACTOR ══ -->
+    <div class="screen" id="screen-nf">
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-upload"></i> Upload do PDF</span></div>
+        <div class="card-body">
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" id="fileInput" accept=".pdf">
+            <span class="upload-icon"><i class="fa-solid fa-upload"></i></span>
+            <div class="upload-text">Clique ou arraste o PDF aqui</div>
+            <div class="upload-hint">Apenas arquivos PDF de nota fiscal</div>
+          </div>
+          <div class="file-info" id="fileInfo">
+            <span><i class="fa-solid fa-file-pdf"></i></span>
+            <div>
+              <div class="file-name" id="fileName">—</div>
+              <div class="file-size" id="fileSize">—</div>
+            </div>
+            <button id="removeFile" style="background:none;border:none;color:var(--muted);cursor:pointer;margin-left:auto;font-size:16px;">✕</button>
+          </div>
+          <div class="error-box" id="errorBox"></div>
+          <div class="progress-wrap" id="progressWrap">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+            <div class="progress-label" id="progressLabel"></div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="btn btn-primary" id="btnExtract" disabled style="width:100%;justify-content:center;padding:12px;">
+              <div class="spinner-sm"></div>
+              <span class="btn-label"><i class="fa-solid fa-gear"></i> EXTRAIR DADOS</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="resultsCard" style="display:none;margin-top:16px;">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-circle-check"></i> Dados Extraídos</span>
+          <button class="btn btn-primary" id="btnImport"><i class="fa-solid fa-rocket"></i> IMPORTAR PARA O SISTEMA</button>
+        </div>
+        <div class="tabs">
+          <div class="tab active" data-tab="formatted">Visualização</div>
+          <div class="tab" data-tab="json">JSON</div>
+        </div>
+        <div class="tab-content active" id="tab-formatted"><div id="formattedView"></div></div>
+        <div class="tab-content" id="tab-json">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <span style="font-size:12px;color:var(--muted);">&lt;/&gt; JSON bruto</span>
+            <button class="btn btn-outline" id="btnCopy"><i class="fa-solid fa-copy"></i> COPIAR</button>
+          </div>
+          <div class="json-wrap"><pre id="jsonOutput"></pre></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FORNECEDORES ══ -->
+    <div class="screen" id="screen-fornecedores">
+      <div class="search-bar">
+        <input class="search-input" id="searchFornecedor" placeholder="Buscar por razão social, fantasia ou CNPJ…">
+        <button class="btn btn-primary" onclick="openModalFornecedor()">+ NOVO</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-industry"></i> Fornecedores</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Razão Social</th><th>Fantasia</th><th>CNPJ</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tbodyFornecedores"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CLIENTES ══ -->
+    <div class="screen" id="screen-clientes">
+      <div class="search-bar">
+        <input class="search-input" id="searchCliente" placeholder="Buscar por razão social, fantasia ou CNPJ…">
+        <button class="btn btn-primary" onclick="openModalCliente()">+ NOVO</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-users"></i> Clientes</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Razão Social</th><th>Fantasia</th><th>CNPJ</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tbodyClientes"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FATURADOS ══ -->
+    <div class="screen" id="screen-faturados">
+      <div class="search-bar">
+        <input class="search-input" id="searchFaturado" placeholder="Buscar por nome ou CPF…">
+        <button class="btn btn-primary" onclick="openModalFaturado()">+ NOVO</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-user"></i> Faturados</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Nome Completo</th><th>CPF</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tbodyFaturados"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BANCOS ══ -->
+    <div class="screen" id="screen-bancos">
+      <div class="search-bar">
+        <input class="search-input" id="searchBanco" placeholder="Buscar por nome ou código…">
+        <button class="btn btn-primary" onclick="openModalBanco()">+ NOVO</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-building-columns"></i> Instituições Bancárias</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Nome</th><th>Código</th><th>Agência</th><th>Conta</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tbodyBancos"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TIPO DESPESA ══ -->
+    <div class="screen" id="screen-despesas">
+      <div class="search-bar">
+        <input class="search-input" id="searchDespesa" placeholder="Buscar classificação de despesa…">
+        <button class="btn btn-primary" onclick="openModalClassif('DESPESA')">+ NOVA</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-arrow-trend-down"></i> Tipos de Despesa</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Descrição</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tbodyDespesas"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TIPO RECEITA ══ -->
+    <div class="screen" id="screen-receitas">
+      <div class="search-bar">
+        <input class="search-input" id="searchReceita" placeholder="Buscar classificação de receita…">
+        <button class="btn btn-primary" onclick="openModalClassif('RECEITA')">+ NOVA</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-arrow-trend-up"></i> Tipos de Receita</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Descrição</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tbodyReceitas"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CONTAS A PAGAR ══ -->
+    <div class="screen" id="screen-apagar">
+      <div class="search-bar">
+        <input class="search-input" id="searchApagar" placeholder="Buscar por fornecedor ou documento…">
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-money-bill-wave"></i> Contas a Pagar</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Clique em <i class="fa-solid fa-chevron-down"></i> para ver as parcelas</span>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Doc.</th><th>Fornecedor</th><th>Faturado</th><th>Valor Total</th><th>Emissão</th><th>Próx. Venc.</th><th>Parcelas</th><th style="width:40px;"></th></tr></thead>
+            <tbody id="tbodyApagar"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CONTAS A RECEBER ══ -->
+    <div class="screen" id="screen-areceber">
+      <div class="search-bar">
+        <input class="search-input" id="searchAreceber" placeholder="Buscar por cliente ou documento…">
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-coins"></i> Contas a Receber</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Doc.</th><th>Cliente</th><th>Valor Total</th><th>Emissão</th><th>Parcelas</th></tr></thead>
+            <tbody id="tbodyAreceber"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ RELATÓRIO ══ -->
+    <div class="screen" id="screen-relatorio">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-chart-bar"></i> Relatório Financeiro</span>
+          <button class="btn btn-outline" onclick="printRelatorio()" style="font-size:11px;padding:6px 12px;"><i class="fa-solid fa-print"></i> IMPRIMIR</button>
+        </div>
+        <div class="tabs">
+          <div class="tab active" data-tab="rel-apagar">Contas a Pagar</div>
+          <div class="tab" data-tab="rel-areceber">Contas a Receber</div>
+        </div>
+        <div class="tab-content active" id="tab-rel-apagar">
+          <div style="padding:20px 20px 0;">
+            <div class="filter-bar">
+              <div class="filter-group"><div class="filter-label">Vencimento de</div><input type="date" class="filter-input" id="relApagarDe"></div>
+              <div class="filter-group"><div class="filter-label">até</div><input type="date" class="filter-input" id="relApagarAte"></div>
+              <div class="filter-group"><div class="filter-label">Status</div>
+                <select class="filter-select" id="relApagarStatus">
+                  <option value="">Todos</option><option value="PENDENTE">Pendente</option><option value="PAGO">Pago</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" onclick="loadRelatorio('apagar')" style="padding:7px 16px;"><i class="fa-solid fa-magnifying-glass"></i> FILTRAR</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Doc.</th><th>Fornecedor</th><th>Parcela</th><th>Vencimento</th><th style="text-align:right;">Valor</th><th style="text-align:right;">Encargos</th><th style="text-align:right;">Status</th></tr></thead>
+            <tbody id="tbodyRelApagar"></tbody>
+          </table></div>
+          <div id="relApagarTotais"></div>
+        </div>
+        <div class="tab-content" id="tab-rel-areceber">
+          <div style="padding:20px 20px 0;">
+            <div class="filter-bar">
+              <div class="filter-group"><div class="filter-label">Vencimento de</div><input type="date" class="filter-input" id="relReceberDe"></div>
+              <div class="filter-group"><div class="filter-label">até</div><input type="date" class="filter-input" id="relReceberAte"></div>
+              <div class="filter-group"><div class="filter-label">Status</div>
+                <select class="filter-select" id="relReceberStatus">
+                  <option value="">Todos</option><option value="PENDENTE">Pendente</option><option value="PAGO">Pago</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" onclick="loadRelatorio('areceber')" style="padding:7px 16px;"><i class="fa-solid fa-magnifying-glass"></i> FILTRAR</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Doc.</th><th>Cliente</th><th>Parcela</th><th>Vencimento</th><th style="text-align:right;">Valor</th><th style="text-align:right;">Encargos</th><th style="text-align:right;">Status</th></tr></thead>
+            <tbody id="tbodyRelAreceber"></tbody>
+          </table></div>
+          <div id="relReceberTotais"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ASSISTENTE IA / RAG ══ -->
+    <div class="screen" id="screen-rag">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-sliders"></i> Modo de Consulta RAG</span></div>
+        <div class="card-body">
+          <div class="rag-mode-selector">
+            <div class="rag-mode active" id="ragModeSimples" onclick="setRagMode('simples')">
+              <div class="rag-mode-icon"><i class="fa-solid fa-database"></i></div>
+              <div class="rag-mode-label">RAG Simples</div>
+              <div class="rag-mode-desc">Converte sua pergunta em SQL e consulta o banco diretamente. Ideal para perguntas diretas sobre registros.</div>
+            </div>
+            <div class="rag-mode" id="ragModeEmbeddings" onclick="setRagMode('embeddings')">
+              <div class="rag-mode-icon"><i class="fa-solid fa-network-wired"></i></div>
+              <div class="rag-mode-label">RAG Embeddings</div>
+              <div class="rag-mode-desc">Busca semântica por similaridade vetorial nos dados indexados. Ideal para perguntas contextuais.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-comments"></i> Assistente Financeiro</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-outline" id="btnIndexar" onclick="indexarDados()" style="display:none;font-size:11px;padding:6px 12px;"><i class="fa-solid fa-arrows-rotate"></i> INDEXAR DADOS</button>
+            <button class="btn btn-outline" onclick="limparRag()" style="font-size:11px;padding:6px 12px;"><i class="fa-solid fa-broom"></i> LIMPAR</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div class="rag-chat" id="ragChat">
+            <div class="rag-welcome">
+              <div class="rag-welcome-icon"><i class="fa-solid fa-robot"></i></div>
+              <div class="rag-welcome-text">
+                <strong>Olá! Sou seu assistente financeiro com IA.</strong><br>
+                Faça perguntas sobre seus dados em linguagem natural. Posso analisar movimentos, fornecedores, parcelas, totais e muito mais.<br>
+                <span style="color:var(--muted);font-size:11px;margin-top:6px;display:block;">Exemplos: "Qual o total de despesas em insumos agrícolas?" · "Quais parcelas estão pendentes?" · "Liste os fornecedores com maior volume de compras"</span>
+              </div>
+            </div>
+          </div>
+          <div style="padding:16px 20px;border-top:1px solid var(--border);">
+            <div class="rag-input-wrap">
+              <textarea id="ragInput" class="rag-textarea" placeholder="Faça uma pergunta sobre os dados financeiros… (Enter para enviar, Shift+Enter para nova linha)" rows="2" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarRag();}"></textarea>
+              <button class="btn btn-primary" id="btnRagEnviar" onclick="enviarRag()" style="padding:10px 18px;align-self:flex-end;"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;">
+              <span id="ragModoLabel" style="font-family:var(--mono);font-size:10px;color:var(--muted);">MODO: RAG SIMPLES (TEXT-TO-SQL)</span>
+              <span id="ragIndexStatus" style="font-family:var(--mono);font-size:10px;color:var(--muted);"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ USUÁRIOS (admin only) ══ -->
+    <div class="screen" id="screen-usuarios">
+      <div class="search-bar">
+        <button class="btn btn-primary" onclick="openModalUsuario()" style="margin-left:auto;">+ NOVO USUÁRIO</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-user-gear"></i> Usuários do Sistema</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tbodyUsuarios"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PERFIS (admin only) ══ -->
+    <div class="screen" id="screen-perfis">
+      <div class="search-bar">
+        <button class="btn btn-primary" onclick="openModalPerfil()" style="margin-left:auto;">+ NOVO PERFIL</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-shield-halved"></i> Perfis de Acesso</span></div>
+        <div class="card-body" style="padding:0;">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Nome</th><th>Descrição</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tbodyPerfis"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ── MODAL FORNECEDOR ── -->
+<div class="modal-overlay" id="modalFornecedor">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalFornecedorTitle">Novo Fornecedor</span>
+      <button class="modal-close" onclick="closeModal('modalFornecedor')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="fornecedorEditId">
+      <div class="form-group"><label class="form-label">Razão Social *</label><input class="form-input" id="fornecedorRazao" placeholder="Razão social completa"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">CNPJ</label><input class="form-input" id="fornecedorCnpj" placeholder="00.000.000/0000-00"></div>
+        <div class="form-group"><label class="form-label">Nome Fantasia</label><input class="form-input" id="fornecedorFantasia" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalFornecedor')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveFornecedor()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL CLIENTE ── -->
+<div class="modal-overlay" id="modalCliente">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalClienteTitle">Novo Cliente</span>
+      <button class="modal-close" onclick="closeModal('modalCliente')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="clienteEditId">
+      <div class="form-group"><label class="form-label">Razão Social *</label><input class="form-input" id="clienteRazao" placeholder="Razão social completa"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">CNPJ</label><input class="form-input" id="clienteCnpj" placeholder="00.000.000/0000-00"></div>
+        <div class="form-group"><label class="form-label">Nome Fantasia</label><input class="form-input" id="clienteFantasia" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalCliente')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveCliente()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL FATURADO ── -->
+<div class="modal-overlay" id="modalFaturado">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalFaturadoTitle">Novo Faturado</span>
+      <button class="modal-close" onclick="closeModal('modalFaturado')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="faturadoEditId">
+      <div class="form-group"><label class="form-label">Nome Completo *</label><input class="form-input" id="faturadoNome" placeholder="Nome completo"></div>
+      <div class="form-group"><label class="form-label">CPF</label><input class="form-input" id="faturadoCpf" placeholder="000.000.000-00"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalFaturado')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveFaturado()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL BANCO ── -->
+<div class="modal-overlay" id="modalBanco">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalBancoTitle">Nova Instituição Bancária</span>
+      <button class="modal-close" onclick="closeModal('modalBanco')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="bancoEditId">
+      <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="bancoNome" placeholder="Ex: Banco do Brasil"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Código Bancário</label><input class="form-input" id="bancoCodigo" placeholder="001"></div>
+        <div class="form-group"><label class="form-label">Agência</label><input class="form-input" id="bancoAgencia" placeholder="0001-5"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Conta Corrente</label><input class="form-input" id="bancoConta" placeholder="12345-6"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalBanco')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveBanco()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL CLASSIFICAÇÃO ── -->
+<div class="modal-overlay" id="modalClassif">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalClassifTitle">Nova Classificação</span>
+      <button class="modal-close" onclick="closeModal('modalClassif')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="classifTipo">
+      <input type="hidden" id="classifEditId">
+      <div class="form-group"><label class="form-label">Descrição *</label><input class="form-input" id="classifDescricao" placeholder="Ex: MANUTENÇÃO E OPERAÇÃO"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalClassif')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveClassif()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL QUITAR PARCELA ── -->
+<div class="modal-overlay" id="modalQuitar">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <span class="modal-title"><i class="fa-solid fa-circle-check" style="color:var(--accent);margin-right:6px;"></i> Quitar Parcela</span>
+      <button class="modal-close" onclick="closeModal('modalQuitar')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="_quitarParcelaId">
+      <input type="hidden" id="_quitarValorOriginal">
+      <div style="padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;margin-bottom:16px;">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:4px;">PARCELA</div>
+        <div id="quitarParcelaInfo" style="font-size:14px;font-weight:700;color:var(--text);"></div>
+        <div style="display:flex;gap:16px;margin-top:6px;">
+          <span style="font-size:11px;color:var(--muted);">Venc: <span id="quitarVencimento" style="color:var(--warning);"></span></span>
+          <span style="font-size:11px;color:var(--muted);">Valor: <span id="quitarValorOriginalDisplay" style="color:var(--text);font-family:var(--mono);"></span></span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data de Pagamento *</label><input class="form-input" type="date" id="quitarData" oninput="calcJurosAuto()"></div>
+        <div class="form-group"><label class="form-label">Taxa Juros (% a.m.)</label>
+          <div style="display:flex;gap:6px;">
+            <input class="form-input" type="number" step="0.01" min="0" id="quitarTaxaJuros" value="1" style="flex:1;" oninput="calcJurosAuto()">
+            <button type="button" class="btn btn-outline" onclick="calcJurosAuto()" style="padding:6px 10px;font-size:10px;" title="Calcular juros"><i class="fa-solid fa-calculator"></i></button>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+          <i class="fa-solid fa-calculator"></i> Encargos
+          <span id="quitarDiasAtraso" style="font-size:10px;"></span>
+        </div>
+        <div class="form-row" style="margin-bottom:0;">
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Juros (R$)</label><input class="form-input" type="number" step="0.01" min="0" id="quitarJuros" value="0" oninput="calcTotalQuitar()"></div>
+          <div class="form-group" style="margin-bottom:0;"><label class="form-label">Multa (R$)</label><input class="form-input" type="number" step="0.01" min="0" id="quitarMulta" value="0" oninput="calcTotalQuitar()"></div>
+        </div>
+        <div class="form-group" style="margin-top:10px;margin-bottom:0;"><label class="form-label">Mora Diária (R$)</label><input class="form-input" type="number" step="0.01" min="0" id="quitarMora" value="0" oninput="calcTotalQuitar()"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Banco / Instituição</label>
+        <select class="form-select" id="quitarBanco"><option value="">— Sem banco —</option></select>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(109,222,74,.06);border:1px solid rgba(109,222,74,.15);border-radius:4px;margin-top:4px;">
+        <span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);">Total a Pagar</span>
+        <span id="quitarTotal" style="font-size:18px;font-weight:700;color:var(--accent);font-family:var(--mono);"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalQuitar')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="confirmarQuitar()"><i class="fa-solid fa-circle-check"></i> CONFIRMAR QUITAÇÃO</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL USUÁRIO ── -->
+<div class="modal-overlay" id="modalUsuario">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalUsuarioTitle">Novo Usuário</span>
+      <button class="modal-close" onclick="closeModal('modalUsuario')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="usuarioEditId">
+      <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="usuarioNome" placeholder="Nome completo"></div>
+      <div class="form-group"><label class="form-label">E-mail *</label><input class="form-input" id="usuarioEmail" type="email" placeholder="email@exemplo.com"></div>
+      <div class="form-group"><label class="form-label" id="usuarioSenhaLabel">Senha *</label><input class="form-input" id="usuarioSenha" type="password" placeholder="Mínimo 6 caracteres"></div>
+      <div class="form-group"><label class="form-label">Perfil de Acesso *</label>
+        <select class="form-select" id="usuarioPerfil"><option value="">— Carregando —</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalUsuario')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="saveUsuario()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL PERFIL ── -->
+<div class="modal-overlay" id="modalPerfil">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalPerfilTitle">Novo Perfil</span>
+      <button class="modal-close" onclick="closeModal('modalPerfil')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="perfilEditId">
+      <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="perfilNome" placeholder="Ex: Operacional"></div>
+      <div class="form-group"><label class="form-label">Descrição</label><input class="form-input" id="perfilDescricao" placeholder="Descrição do perfil"></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:0;">
+        <input type="checkbox" id="perfilAdmin" style="width:16px;height:16px;accent-color:var(--accent);">
+        <label for="perfilAdmin" class="form-label" style="margin:0;cursor:pointer;">Perfil Administrador (acesso total)</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modalPerfil')">CANCELAR</button>
+      <button class="btn btn-primary" onclick="savePerfil()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCRIPTS ── -->
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/screens/dashboard.js"></script>
+<script src="js/screens/nf.js"></script>
+<script src="js/screens/fornecedores.js"></script>
+<script src="js/screens/clientes.js"></script>
+<script src="js/screens/faturados.js"></script>
+<script src="js/screens/bancos.js"></script>
+<script src="js/screens/classificacoes.js"></script>
+<script src="js/screens/movimentos.js"></script>
+<script src="js/screens/relatorio.js"></script>
+<script src="js/screens/rag.js"></script>
+<script src="js/screens/usuarios.js"></script>
+<script src="js/screens/perfis.js"></script>
+</body>
+</html>

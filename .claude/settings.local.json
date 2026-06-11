@@ -8,7 +8,10 @@
       "PowerShell(wsl -e bash -c \"cd /home/projects/unirv/nf-extractor && node db/index.js 2>&1\")",
       "PowerShell(wsl -e bash -c \"dig +short A db.txpywwchoirswrinwpdx.supabase.co; echo '---IPv6---'; dig +short AAAA db.txpywwchoirswrinwpdx.supabase.co\" 2>&1)",
       "PowerShell(wsl -e bash -c \"nslookup db.txpywwchoirswrinwpdx.supabase.co 2>&1\" 2>&1)",
-      "PowerShell(Resolve-DnsName db.txpywwchoirswrinwpdx.supabase.co 2>&1)"
+      "PowerShell(Resolve-DnsName db.txpywwchoirswrinwpdx.supabase.co 2>&1)",
+      "Bash(node -e \"require\\('./routes/rag'\\)\")",
+      "Bash(node -e \"require\\('./server'\\)\")",
+      "Bash(kill %1)"
     ]
   }
 }

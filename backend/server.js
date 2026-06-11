@@ -1,22 +1,38 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 require('dns').setDefaultResultOrder('ipv4first');
-const express = require('express');
+
+const express  = require('express');
+const cors     = require('cors');
 const Anthropic = require('@anthropic-ai/sdk');
-const OpenAI = require('openai');
-const path = require('path');
+const OpenAI   = require('openai');
+const path     = require('path');
+const auth     = require('./middleware/auth');
 
 const AI_PROVIDER    = process.env.AI_PROVIDER?.toLowerCase() || 'anthropic';
 const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'google/flan-t5-large';
-const GEMINI_MODEL   = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-const OPENAI_MODEL   = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const GEMINI_MODEL   = process.env.GEMINI_MODEL   || 'gemini-2.0-flash';
+const OPENAI_MODEL   = process.env.OPENAI_MODEL   || 'gpt-4o-mini';
 
 console.log(`🚀 Provedor AI: ${AI_PROVIDER}`);
 
 const app = express();
-app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Rotas ──────────────────────────────────────────────────────
+// CORS: em produção defina CORS_ORIGIN=https://seu-app.vercel.app no Railway
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+app.use(express.json({ limit: '50mb' }));
+
+// Serve frontend estático
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// ── Auth (sem proteção) ────────────────────────────────────────
+app.use('/api/auth', require('./routes/auth'));
+
+// ── Rotas protegidas por JWT ───────────────────────────────────
+app.use('/api', auth);
 app.use('/api/fornecedores',   require('./routes/fornecedores'));
 app.use('/api/clientes',       require('./routes/clientes'));
 app.use('/api/faturados',      require('./routes/faturados'));
@@ -27,6 +43,15 @@ app.use('/api/bancos',         require('./routes/bancos'));
 app.use('/api/dashboard',      require('./routes/dashboard'));
 app.use('/api/relatorios',     require('./routes/relatorios'));
 app.use('/api/rag',            require('./routes/rag'));
+app.use('/api/perfis',         require('./routes/perfis'));
+app.use('/api/usuarios',       require('./routes/usuarios'));
+
+// SPA fallback: rotas não-api retornam index.html
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  }
+});
 
 // ── Helpers ────────────────────────────────────────────────────
 function extractJSON(text) {
@@ -41,7 +66,7 @@ async function withRetry(fn, attempts = 2) {
     try { return await fn(); }
     catch (err) {
       if (i === attempts - 1) throw err;
-      console.warn(`⚠️ Tentativa ${i + 1} falhou, retentando...`);
+      console.warn(`⚠️ Tentativa ${i + 1} falhou, retentando…`);
     }
   }
 }
@@ -99,7 +124,7 @@ FORMATO DE SAÍDA OBRIGATÓRIO:
 `.trim();
 }
 
-// ── Rota de extração ───────────────────────────────────────────
+// ── Rota de extração (protegida) ───────────────────────────────
 app.post('/api/extract', async (req, res) => {
   const { base64, mediaType, text } = req.body;
 
@@ -138,8 +163,7 @@ async function extractWithAnthropic(base64, mediaType) {
   const client = new Anthropic({ apiKey });
   const message = await withRetry(() =>
     client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1500,
+      model: 'claude-sonnet-4-20250514', max_tokens: 1500,
       messages: [{
         role: 'user',
         content: [
@@ -170,8 +194,7 @@ async function extractWithHuggingFace(text) {
 async function makeGeminiRequest(apiKey, model, text) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: `${buildPrompt()}\n\nTexto da nota fiscal:\n${text}` }] }],
       generationConfig: { maxOutputTokens: 1500, temperature: 0.1, candidateCount: 1 }
@@ -199,7 +222,7 @@ async function extractWithGemini(text) {
     catch (err) {
       lastError = err;
       if (err.status !== 404) throw err;
-      console.warn(`⚠ Modelo '${model}' não encontrado, tentando fallback...`);
+      console.warn(`⚠ Modelo '${model}' não encontrado, tentando fallback…`);
     }
   }
   throw lastError;
@@ -222,6 +245,17 @@ async function extractWithOpenAI(text) {
 async function runMigrations() {
   const db = require('./db/index');
   const migrations = [
+    `CREATE TABLE IF NOT EXISTS perfil (
+       id SERIAL PRIMARY KEY, nome VARCHAR(100) NOT NULL,
+       descricao TEXT, admin BOOLEAN DEFAULT FALSE,
+       ativo BOOLEAN DEFAULT TRUE, criado_em TIMESTAMPTZ DEFAULT NOW()
+     )`,
+    `CREATE TABLE IF NOT EXISTS usuario (
+       id SERIAL PRIMARY KEY, nome VARCHAR(255) NOT NULL,
+       email VARCHAR(255) UNIQUE NOT NULL, senha_hash VARCHAR(255) NOT NULL,
+       perfil_id INTEGER REFERENCES perfil(id),
+       ativo BOOLEAN DEFAULT TRUE, criado_em TIMESTAMPTZ DEFAULT NOW()
+     )`,
     `CREATE TABLE IF NOT EXISTS instituicao_bancaria (
        id SERIAL PRIMARY KEY, nome VARCHAR(255) NOT NULL,
        codigo VARCHAR(10), agencia VARCHAR(20), conta VARCHAR(30),
@@ -232,11 +266,35 @@ async function runMigrations() {
     `ALTER TABLE parcelacontas ADD COLUMN IF NOT EXISTS mora       DECIMAL(15,2) DEFAULT 0`,
     `ALTER TABLE parcelacontas ADD COLUMN IF NOT EXISTS valor_pago DECIMAL(15,2)`,
     `ALTER TABLE parcelacontas ADD COLUMN IF NOT EXISTS instituicao_id INTEGER REFERENCES instituicao_bancaria(id) ON DELETE SET NULL`,
+    // Perfis e usuário admin padrão
+    `INSERT INTO perfil (nome, descricao, admin) VALUES
+       ('Administrador', 'Acesso total ao sistema incluindo usuários e perfis', true),
+       ('Operacional', 'Acesso funcional completo sem gestão de usuários', false)
+     ON CONFLICT DO NOTHING`,
   ];
+
+  const bcrypt = require('bcryptjs');
   for (const sql of migrations) {
     try { await db.query(sql); }
     catch (e) { console.warn('⚠️  Migration skip:', e.message.split('\n')[0]); }
   }
+
+  // Cria usuário admin padrão se não existir
+  try {
+    const { rows } = await db.query(`SELECT id FROM usuario WHERE email='admin@gestorpro.com'`);
+    if (!rows.length) {
+      const { rows: [p] } = await db.query(`SELECT id FROM perfil WHERE admin=true LIMIT 1`);
+      if (p) {
+        const hash = await bcrypt.hash('admin123', 10);
+        await db.query(
+          `INSERT INTO usuario (nome, email, senha_hash, perfil_id) VALUES ($1,$2,$3,$4)`,
+          ['Administrador', 'admin@gestorpro.com', hash, p.id]
+        );
+        console.log('👤 Usuário admin criado: admin@gestorpro.com / admin123');
+      }
+    }
+  } catch(e) { console.warn('⚠️  Seed skip:', e.message.split('\n')[0]); }
+
   console.log('✅ Migrations OK');
 }
 
