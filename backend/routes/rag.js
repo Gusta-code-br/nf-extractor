@@ -3,35 +3,66 @@ const router = express.Router();
 const db = require('../db/index');
 
 const DB_SCHEMA = `
-Banco de dados PostgreSQL — sistema administrativo-financeiro agrícola.
+## Schema PostgreSQL — GestorPro Financeiro (sistema agrícola brasileiro)
 
-TABELAS:
+### fornecedores
+(id, razao_social, fantasia, cnpj, ativo)
+— Empresas/pessoas que fornecem insumos, serviços e produtos ao produtor rural
+— Sempre filtre: ativo = true
 
-fornecedores(id, razao_social, fantasia, cnpj, ativo, criado_em, atualizado_em)
+### clientes
+(id, razao_social, fantasia, cnpj, ativo)
+— Cooperativas, frigoríficos, tradings que compram a produção
+— Sempre filtre: ativo = true
 
-clientes(id, razao_social, fantasia, cnpj, ativo, criado_em, atualizado_em)
+### faturados
+(id, nome_completo, cpf, ativo)
+— Produtores rurais que emitem ou recebem as notas fiscais
+— Sempre filtre: ativo = true
 
-faturados(id, nome_completo, cpf, ativo, criado_em, atualizado_em)
+### classificacao
+(id, tipo, descricao, ativo)
+— tipo: 'DESPESA' ou 'RECEITA'
+— Categorias DESPESA: 'INSUMOS AGRÍCOLAS', 'MANUTENÇÃO E OPERAÇÃO', 'RECURSOS HUMANOS',
+  'SERVIÇOS OPERACIONAIS', 'INFRAESTRUTURA E UTILIDADES', 'ADMINISTRATIVAS',
+  'SEGUROS E PROTEÇÃO', 'IMPOSTOS E TAXAS', 'INVESTIMENTOS'
+— Categorias RECEITA: 'VENDA DE SOJA', 'VENDA DE MILHO', 'VENDA DE ALGODÃO',
+  'VENDA DE CAFÉ', 'VENDA DE GADO', 'ARRENDAMENTO', 'OUTRAS RECEITAS'
+— Sempre filtre: ativo = true
 
-classificacao(id, tipo, descricao, ativo, criado_em, atualizado_em)
-  — tipo: 'DESPESA' ou 'RECEITA'
-  — Categorias DESPESA: INSUMOS AGRÍCOLAS, MANUTENÇÃO E OPERAÇÃO, RECURSOS HUMANOS,
-    SERVIÇOS OPERACIONAIS, INFRAESTRUTURA E UTILIDADES, ADMINISTRATIVAS,
-    SEGUROS E PROTEÇÃO, IMPOSTOS E TAXAS, INVESTIMENTOS
+### movimentocontas
+(id, tipo_lancamento, descricao, valor_total, data_emissao, numero_documento,
+ fornecedor_id, cliente_id, faturado_id, ativo, criado_em)
+— tipo_lancamento: 1 = Conta a Pagar (despesa/saída), 0 = Conta a Receber (receita/entrada)
+— valor_total: valor total do lançamento (NUMERIC 12,2)
+— data_emissao: data da nota fiscal (DATE)
+— fornecedor_id: preenchido para tipo_lancamento=1 (pagar)
+— cliente_id: preenchido para tipo_lancamento=0 (receber)
+— Sempre filtre: ativo = true
 
-movimentocontas(id, tipo_lancamento, descricao, valor_total, data_emissao,
-                numero_documento, fornecedor_id, cliente_id, faturado_id, ativo, criado_em, atualizado_em)
-  — tipo_lancamento: 1 = Contas a Pagar (Despesa), 2 = Contas a Receber (Receita)
-  — valor_total: NUMERIC(12,2)
-  — data_emissao: DATE
+### classificacao_movimento
+(id, movimento_id, classificacao_id)
+— Tabela de junção N:N entre movimentocontas e classificacao
+— Use: JOIN classificacao_movimento cm ON cm.movimento_id = m.id
+       JOIN classificacao cl ON cl.id = cm.classificacao_id
 
-classificacao_movimento(id, movimento_id, classificacao_id)
-  — Relação N:N entre movimentocontas e classificacao
+### parcelacontas
+(id, movimento_id, identificacao, numero_parcela, data_vencimento,
+ valor, status, data_pagamento, juros, multa, mora, valor_pago)
+— status: 'PENDENTE' ou 'PAGO'
+— valor: valor original da parcela (NUMERIC 12,2)
+— valor_pago: valor efetivamente pago (pode diferir de valor por juros/multa/mora)
+— juros, multa, mora: encargos adicionados ao quitar (NUMERIC 15,2)
+— Para total pago real: COALESCE(valor_pago, valor)
+— Parcelas vencidas: status='PENDENTE' AND data_vencimento < CURRENT_DATE
+— data_pagamento: preenchido quando status='PAGO'
 
-parcelacontas(id, movimento_id, identificacao, numero_parcela, data_vencimento,
-              valor, status, data_pagamento, criado_em, atualizado_em)
-  — status: 'PENDENTE' ou 'PAGO'
-  — valor: NUMERIC(12,2)
+### Relacionamentos
+movimentocontas → fornecedores: LEFT JOIN fornecedores f ON f.id = m.fornecedor_id
+movimentocontas → clientes:     LEFT JOIN clientes c ON c.id = m.cliente_id
+movimentocontas → faturados:    LEFT JOIN faturados ft ON ft.id = m.faturado_id
+movimentocontas → parcelas:     LEFT JOIN parcelacontas pc ON pc.movimento_id = m.id
+movimentocontas → classificacao: via classificacao_movimento (tabela de junção)
 `;
 
 async function callLLM(systemPrompt, userMessage) {
@@ -106,35 +137,95 @@ router.post('/query', async (req, res) => {
   if (!pergunta?.trim()) return res.status(400).json({ error: 'Pergunta não informada.' });
 
   try {
-    const sqlSystem = `Você é especialista em SQL/PostgreSQL para sistema financeiro agrícola brasileiro.
-Dado o schema abaixo, gere APENAS uma query SQL SELECT para responder à pergunta do usuário.
+    const sqlSystem = `Você é especialista em PostgreSQL gerando queries para um sistema financeiro de produtor rural brasileiro.
+Dado o schema abaixo, gere UMA ÚNICA query SQL SELECT que responda exatamente à pergunta do usuário.
 
-REGRAS OBRIGATÓRIAS:
-- Retorne SOMENTE o SQL puro, sem markdown (sem \`\`\`), sem comentários, sem explicações
-- Use apenas SELECT — nunca INSERT, UPDATE, DELETE, DROP ou similares
-- Adicione LIMIT 50 em queries sem filtro específico por ID
-- Use ILIKE para buscas de texto (case-insensitive)
-- Use TO_CHAR(data_emissao, 'DD/MM/YYYY') para exibir datas formatadas
-- Use alias legíveis nos campos do SELECT (ex: valor_total AS "Valor Total")
-- Para totais monetários: SUM(valor_total::numeric)
+## FORMATO DA RESPOSTA
+- Retorne APENAS o SQL puro — sem markdown, sem \`\`\`, sem comentários, sem explicações
+- Nunca use INSERT, UPDATE, DELETE, DROP, ALTER, CREATE ou similares
+- Todas as palavras-chave SQL em INGLÊS (SELECT, FROM, WHERE, LIMIT, ORDER BY, GROUP BY, HAVING, JOIN)
+
+## REGRAS DE CONSULTA
+- Sempre aplique WHERE ativo = true nas tabelas fornecedores, clientes, faturados, classificacao, movimentocontas
+- Use COALESCE(campo, 0) para campos numéricos que podem ser NULL
+- Use ILIKE '%termo%' para buscas de texto (case-insensitive)
+- Use CURRENT_DATE para comparações com a data de hoje
+- "Este mês" = DATE_TRUNC('month', CURRENT_DATE); "Este ano" = EXTRACT(YEAR FROM CURRENT_DATE)
+- "Vencidas" = status = 'PENDENTE' AND data_vencimento < CURRENT_DATE
+- "A vencer" = status = 'PENDENTE' AND data_vencimento >= CURRENT_DATE
+- Para valor pago real: COALESCE(pc.valor_pago, pc.valor)
+- Adicione LIMIT 50 em queries sem filtro por ID específico
+
+## FORMATAÇÃO DOS RESULTADOS
+- Datas: TO_CHAR(campo_data, 'DD/MM/YYYY') AS "Data"
+- Valores: campo AS "Valor (R$)" — não formate no SQL, apenas dê alias legível
+- Sempre use aliases descritivos: razao_social AS "Fornecedor", valor_total AS "Valor Total"
+
+## GROUP BY
+- Toda coluna no SELECT que não seja agregada (SUM, COUNT, AVG, MAX, MIN) DEVE estar no GROUP BY
+- Exemplo: SELECT m.id, m.descricao, SUM(pc.valor) ... GROUP BY m.id, m.descricao
+
+## JOINS PADRÃO
+- Para nome do fornecedor: LEFT JOIN fornecedores f ON f.id = m.fornecedor_id
+- Para nome do cliente: LEFT JOIN clientes c ON c.id = m.cliente_id
+- Para nome do faturado: LEFT JOIN faturados ft ON ft.id = m.faturado_id
+- Para categoria: JOIN classificacao_movimento cm ON cm.movimento_id = m.id JOIN classificacao cl ON cl.id = cm.classificacao_id
 
 ${DB_SCHEMA}`;
 
-    const rawSql = await callLLM(sqlSystem, pergunta);
-    const sql = rawSql.replace(/```sql\s*/gi, '').replace(/```\s*/g, '').trim();
+    function cleanSql(raw) {
+      return raw
+        .replace(/```sql\s*/gi, '').replace(/```\s*/g, '').trim()
+        .replace(/\bLIMITAR\b/gi, 'LIMIT')
+        .replace(/\bORDENAR\s+POR\b/gi, 'ORDER BY')
+        .replace(/\bAGRUPAR\s+POR\b/gi, 'GROUP BY')
+        .replace(/\bONDE\b/gi, 'WHERE')
+        .replace(/\bSELECIONAR\b/gi, 'SELECT')
+        .replace(/\bDESDEE?\b/gi, 'FROM');
+    }
 
+    let sql = cleanSql(await callLLM(sqlSystem, pergunta));
     validateSQL(sql);
 
-    const { rows } = await db.query(sql);
+    let rows;
+    try {
+      ({ rows } = await db.query(sql));
+    } catch (dbErr) {
+      // Retry: envia o erro para o LLM corrigir o SQL
+      const fixed = cleanSql(await callLLM(sqlSystem,
+        `A query abaixo causou este erro PostgreSQL: ${dbErr.message}\n\nCorriga o SQL e retorne APENAS o SQL corrigido:\n\n${sql}`
+      ));
+      validateSQL(fixed);
+      sql = fixed;
+      ({ rows } = await db.query(sql));
+    }
 
-    const answerSystem = `Você é assistente financeiro especializado em sistemas agrícolas brasileiros.
-Analise os dados retornados e responda à pergunta de forma clara, organizada e elaborada em português.
-- Formate valores monetários como R$ X.XXX,XX
-- Formate datas como DD/MM/YYYY
-- Use listas com marcadores para múltiplos itens
-- Use negrito (**texto**) para destacar valores e informações importantes
-- Se não houver dados, informe claramente que nenhum registro foi encontrado
-- Seja objetivo mas completo`;
+    const answerSystem = `Você é o assistente financeiro do GestorPro, especializado em gestão financeira de produtores rurais brasileiros.
+Seu objetivo é transformar dados brutos do banco em respostas claras, úteis e com contexto de negócio.
+
+## FORMATO DA RESPOSTA
+- Responda sempre em português brasileiro
+- Use **negrito** para destacar valores monetários e totais importantes
+- Use listas com marcadores (•) para múltiplos itens
+- Use tabelas markdown quando houver comparações entre itens
+- Estruture: resultado principal → detalhes → observação ou insight (quando relevante)
+
+## FORMATAÇÃO DE DADOS
+- Valores monetários: R$ X.XXX,XX (ex: R$ 12.450,00)
+- Datas: DD/MM/YYYY
+- Percentuais: X,X%
+- Quantidades: separe milhares com ponto (ex: 1.234 parcelas)
+
+## CONTEXTO DE NEGÓCIO
+- "Contas a Pagar" = despesas operacionais da fazenda (insumos, manutenção, mão de obra, etc.)
+- "Contas a Receber" = receitas de venda de commodities (soja, milho, algodão, gado, etc.)
+- "Parcelas vencidas" indicam fluxo de caixa negativo — mencione se o volume for expressivo
+- Quando o resultado for zero registros: informe claramente e sugira possível motivo (filtro muito específico, período sem lançamentos, etc.)
+
+## INSIGHTS (apenas quando houver dados suficientes)
+- Se o total de despesas superar receitas no período, mencione o saldo negativo
+- Se houver muitas parcelas vencidas, destaque o valor total em atraso
+- Seja objetivo — não invente dados que não estão no resultado`;
 
     const answerMsg = `Pergunta: ${pergunta}
 
@@ -210,7 +301,8 @@ async function buildEmbeddingIndex() {
     LEFT JOIN classificacao cl ON cl.id = cm.classificacao_id
     LEFT JOIN parcelacontas pc ON pc.movimento_id = m.id
     WHERE m.ativo = true
-    GROUP BY m.id, f.razao_social, f.cnpj, c.razao_social, ft.nome_completo
+    GROUP BY m.id, m.tipo_lancamento, m.descricao, m.valor_total, m.data_emissao, m.numero_documento,
+             f.razao_social, f.cnpj, c.razao_social, ft.nome_completo
     ORDER BY m.data_emissao DESC
     LIMIT 200
   `);
@@ -296,12 +388,25 @@ router.post('/embeddings/query', async (req, res) => {
 
     const context = scored.map((c, i) => `[${i + 1}] ${c.text}`).join('\n\n');
 
-    const system = `Você é assistente financeiro especializado em sistemas agrícolas brasileiros.
-Use APENAS as informações do contexto abaixo para responder à pergunta.
-Se a informação não estiver no contexto, informe claramente que não encontrou.
-Responda em português de forma clara, organizada e elaborada.
-Formate valores como R$ X.XXX,XX e datas como DD/MM/YYYY.
-Use listas quando houver múltiplos itens.`;
+    const system = `Você é o assistente financeiro do GestorPro, especializado em gestão de produtores rurais brasileiros.
+Responda à pergunta usando EXCLUSIVAMENTE as informações do contexto recuperado abaixo.
+
+## REGRAS
+- Se a informação não estiver no contexto: informe que não encontrou e sugira reformular a pergunta com mais detalhes
+- Nunca invente dados, valores ou datas que não estejam no contexto
+- Responda em português brasileiro de forma clara e objetiva
+
+## FORMATO
+- Valores monetários: R$ X.XXX,XX
+- Datas: DD/MM/YYYY
+- Use **negrito** para destacar valores e nomes importantes
+- Use listas com marcadores para múltiplos registros
+- Indique a fonte: "Conforme NF XXXX de DD/MM/YYYY..."
+
+## CONTEXTO DE NEGÓCIO
+- Contas a Pagar = saídas (despesas da fazenda)
+- Contas a Receber = entradas (vendas de produção agrícola)
+- Parcelas PENDENTE = ainda não pagas; PAGO = quitadas`;
 
     const msg = `Pergunta: ${pergunta}
 
