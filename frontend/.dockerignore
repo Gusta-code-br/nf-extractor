@@ -1,0 +1,4 @@
+package.json
+vercel.json
+Dockerfile
+.dockerignore
