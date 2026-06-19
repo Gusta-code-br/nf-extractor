@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../db/index');
 
 router.get('/parcelas', async (req, res) => {
-  const { tipo_lancamento, de, ate, status } = req.query;
+  const { tipo_lancamento, de, ate, status, fornecedor_id, classificacao_id } = req.query;
   const conditions = ['m.ativo = true'];
   const params = [];
   let i = 1;
@@ -23,6 +23,14 @@ router.get('/parcelas', async (req, res) => {
   if (status) {
     conditions.push(`pc.status = $${i++}`);
     params.push(status.toUpperCase());
+  }
+  if (fornecedor_id) {
+    conditions.push(`m.fornecedor_id = $${i++}`);
+    params.push(parseInt(fornecedor_id));
+  }
+  if (classificacao_id) {
+    conditions.push(`m.id IN (SELECT movimento_id FROM classificacao_movimento WHERE classificacao_id = $${i++})`);
+    params.push(parseInt(classificacao_id));
   }
 
   const { rows } = await db.query(`

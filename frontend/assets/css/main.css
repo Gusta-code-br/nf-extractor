@@ -279,3 +279,30 @@ tbody td { padding: 12px 14px; color: var(--text); vertical-align: middle; }
 .login-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
 .login-error { display: none; padding: 10px 14px; background: rgba(224,85,85,.08); border: 1px solid rgba(224,85,85,.25); border-radius: 4px; color: var(--danger); font-size: 12px; margin-bottom: 16px; font-family: var(--mono); }
 .login-error.visible { display: block; }
+
+/* ── IMPRESSÃO DE RELATÓRIO ── */
+.print-only { display: none; }
+
+@media print {
+  body * { visibility: hidden; }
+  #printArea, #printArea * { visibility: visible; }
+  body { background: #fff; overflow: visible; height: auto; display: block; }
+  .sidebar, .topbar { display: none; }
+  .main { margin-left: 0; height: auto; overflow: visible; }
+  #printArea {
+    display: block;
+    position: absolute; top: 0; left: 0; width: 100%;
+    background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif;
+    padding: 0;
+  }
+  .print-header { border-bottom: 2px solid #111; padding-bottom: 12px; margin-bottom: 18px; }
+  .print-logo { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #555; margin-bottom: 4px; }
+  .print-header h1 { font-size: 18px; margin-bottom: 6px; }
+  .print-filtros { font-size: 11px; color: #444; }
+  .print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .print-table th, .print-table td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
+  .print-table th { background: #eee; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+  .print-table tr { page-break-inside: avoid; }
+  .print-totais { display: flex; gap: 24px; justify-content: flex-end; margin-top: 16px; font-size: 12px; }
+  .print-footer { margin-top: 24px; font-size: 10px; color: #777; text-align: right; }
+}

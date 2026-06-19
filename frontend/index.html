@@ -305,6 +305,12 @@
                   <option value="">Todos</option><option value="PENDENTE">Pendente</option><option value="PAGO">Pago</option>
                 </select>
               </div>
+              <div class="filter-group"><div class="filter-label">Fornecedor</div>
+                <select class="filter-select" id="relApagarFornecedor"><option value="">Todos</option></select>
+              </div>
+              <div class="filter-group"><div class="filter-label">Tipo de Despesa</div>
+                <select class="filter-select" id="relApagarClassificacao"><option value="">Todos</option></select>
+              </div>
               <button class="btn btn-primary" onclick="loadRelatorio('apagar')" style="padding:7px 16px;"><i class="fa-solid fa-magnifying-glass"></i> FILTRAR</button>
             </div>
           </div>
@@ -335,6 +341,9 @@
         </div>
       </div>
     </div>
+
+    <!-- ══ ÁREA DE IMPRESSÃO (só visível no @media print) ══ -->
+    <div id="printArea" class="print-only"></div>
 
     <!-- ══ ASSISTENTE IA / RAG ══ -->
     <div class="screen" id="screen-rag">
