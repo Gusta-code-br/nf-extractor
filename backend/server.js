@@ -266,6 +266,11 @@ async function runMigrations() {
     `ALTER TABLE parcelacontas ADD COLUMN IF NOT EXISTS mora       DECIMAL(15,2) DEFAULT 0`,
     `ALTER TABLE parcelacontas ADD COLUMN IF NOT EXISTS valor_pago DECIMAL(15,2)`,
     `ALTER TABLE parcelacontas ADD COLUMN IF NOT EXISTS instituicao_id INTEGER REFERENCES instituicao_bancaria(id) ON DELETE SET NULL`,
+    // Remove duplicatas de perfil geradas antes do UNIQUE existir (mantém a mais antiga de cada nome e qualquer uma em uso)
+    `DELETE FROM perfil
+       WHERE id NOT IN (SELECT MIN(id) FROM perfil GROUP BY nome)
+         AND id NOT IN (SELECT DISTINCT perfil_id FROM usuario)`,
+    `ALTER TABLE perfil ADD CONSTRAINT perfil_nome_unique UNIQUE (nome)`,
     // Perfis e usuário admin padrão
     `INSERT INTO perfil (nome, descricao, admin) VALUES
        ('Administrador', 'Acesso total ao sistema incluindo usuários e perfis', true),
